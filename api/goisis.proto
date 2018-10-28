@@ -1,0 +1,89 @@
+
+syntax = "proto3";
+
+//import "google/protobuf/any.proto";
+import "google/protobuf/empty.proto";
+
+package goisisapi;
+
+service GoisisApi {
+	rpc StartIsis(StartIsisRequest) returns (google.protobuf.Empty);
+	rpc StopIsis(StopIsisRequest) returns (google.protobuf.Empty);
+
+	rpc GetDatabase(GetDatabaseRequest) returns (GetDatabaseResponse);
+	rpc MonitorDatabase(MonitorDatabaseRequest) returns(stream MonitorDatabaseResponse);
+}
+
+message StartIsisRequest {
+	Global global = 1;
+}
+
+message StopIsisRequest {
+}
+
+message GetDatabaseRequest {
+}
+
+message GetDatabaseResponse {
+}
+
+message MonitorDatabaseRequest {
+}
+
+message MonitorDatabaseResponse {
+	LevelDb level_db = 1;
+}
+
+//
+
+message LevelDb {
+	uint32 level = 1;
+	repeated Lsp lsp = 2;
+}
+
+message Lsp {
+	bool decoded_completed = 1;
+	string raw_data = 2;
+	string lsp_id = 3;
+	uint32 checksum = 4;
+	uint32 remaining_lifetime = 5;
+	uint32 sequence = 6;
+	uint32 attributes = 7;
+	repeated string ipv4_addresses = 8;
+	repeated string ipv6_addresses = 9;
+	string ipv4_te_routerid = 10;
+	string ipv6_te_routerid = 11;
+	repeated uint32 protocol_supported = 12;
+	string dynamic_hostname = 13;
+	Authentication authentication = 14;
+	MtEntries mt_entries = 15;
+	repeated RouterCapabilities router_capabilities = 16;
+	NodeTags node_tags = 17;
+	bytes binary = 18;
+}
+
+message Authentication {
+	string authentication_type = 1;
+	string authentication_key = 2;
+}
+
+message Topology {
+	uint32 mt_id = 1;
+	uint32 attributes = 2;
+}
+
+message MtEntries {
+	repeated Topology topology = 1;
+}
+
+message RouterCapabilities {
+	uint32 flags = 1;
+}
+
+message NodeTags {
+}
+
+message Global {
+	string system_id = 1;
+}
+

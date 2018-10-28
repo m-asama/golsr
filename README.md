@@ -1,2 +1,5 @@
-# golsr
-OSPF/IS-IS implemented in the Go Programming Language
+# GoLSR: OSPF/IS-IS implementation in Go
+
+GoLSR is an open source OSPF/IS-IS implementation implemented in a modern programming language, [the Go Programming Language](http://golang.org/).
+
+----
