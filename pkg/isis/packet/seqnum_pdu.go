@@ -2,8 +2,8 @@ package packet
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 type SnPdu struct {
@@ -11,19 +11,34 @@ type SnPdu struct {
 
 	SourceId   []byte
 	StartLspId []byte // CSN
-	EndLspId   []byte //CSN
+	EndLspId   []byte // CSN
 }
 
-func NewSnPdu(PduType PduType) (*SnPdu, error) {
-	if PduType != PDU_TYPE_LEVEL1_CSNP &&
-		PduType != PDU_TYPE_LEVEL2_CSNP &&
-		PduType != PDF_TYPE_LEVEL1_PSNP &&
-		PduType != PDF_TYPE_LEVEL2_PSNP {
-		return nil, errors.New("")
+func NewSnPdu(pduType PduType, idLength uint8) (*SnPdu, error) {
+	if pduType != PDU_TYPE_LEVEL1_CSNP &&
+		pduType != PDU_TYPE_LEVEL2_CSNP &&
+		pduType != PDF_TYPE_LEVEL1_PSNP &&
+		pduType != PDF_TYPE_LEVEL2_PSNP {
+		return nil, errors.New("NewSnPdu: pduType invalid")
+	}
+	var lengthIndicator uint8
+	switch pduType {
+	case PDU_TYPE_LEVEL1_CSNP, PDU_TYPE_LEVEL2_CSNP:
+		lengthIndicator = 15 + idLength*3
+	case PDF_TYPE_LEVEL1_PSNP, PDF_TYPE_LEVEL2_PSNP:
+		lengthIndicator = 11 + idLength
 	}
 	sn := SnPdu{
-		Base: PduBase{PduType: PduType},
+		Base: PduBase{
+			LengthIndicator: lengthIndicator,
+			IdLength:        idLength,
+			PduType:         pduType,
+		},
 	}
+	sn.Base.Init()
+	sn.SourceId = make([]byte, 0)
+	sn.StartLspId = make([]byte, 0)
+	sn.EndLspId = make([]byte, 0)
 	return &sn, nil
 }
 
@@ -35,8 +50,8 @@ func (sn *SnPdu) String() string {
 		fmt.Fprintf(&b, "%02x", t)
 	}
 	fmt.Fprintf(&b, "\n")
-	if PduType == PDU_TYPE_LEVEL1_CSNP ||
-		PduType == PDU_TYPE_LEVEL2_CSNP {
+	if sn.Base.PduType == PDU_TYPE_LEVEL1_CSNP ||
+		sn.Base.PduType == PDU_TYPE_LEVEL2_CSNP {
 		fmt.Fprintf(&b, "StartLspId              ")
 		for t := range sn.StartLspId {
 			fmt.Fprintf(&b, "%02x", t)
@@ -51,43 +66,26 @@ func (sn *SnPdu) String() string {
 	return b.String()
 }
 
-func (sn *SnPdu) VlfOffset() (uint16, error) {
-	var VlfOffset uint16
-	switch sn.Base.PduType {
-	case PDU_TYPE_LEVEL1_CSNP, PDU_TYPE_LEVEL2_CSNP:
-		VlfOffset = 15 + sn.Base.IdLength*3
-	case PDF_TYPE_LEVEL1_PSNP, PDF_TYPE_LEVEL2_PSNP:
-		VlfOffset = 11 + sn.Base.IdLength
-	default:
-		return 0, errors.New("")
-	}
-	return VlfOffset, nil
-}
-
 func (sn *SnPdu) DecodeFromBytes(data []byte) error {
 	err := sn.Base.DecodeFromBytes(data)
-	if err {
+	if err != nil {
 		return err
-	}
-	offset, err := sn.VlfOffset()
-	if err != nil || len(data) < offset {
-		return errors.New("")
 	}
 	//
 	// SourceId
-	sourceId = make([]byte, sn.Base.IdLength+1)
+	sourceId := make([]byte, sn.Base.IdLength+1)
 	copy(sourceId, data[10:11+sn.Base.IdLength])
 	sn.SourceId = sourceId
-	if PduType == PDU_TYPE_LEVEL1_CSNP ||
-		PduType == PDU_TYPE_LEVEL2_CSNP {
+	if sn.Base.PduType == PDU_TYPE_LEVEL1_CSNP ||
+		sn.Base.PduType == PDU_TYPE_LEVEL2_CSNP {
 		//
 		// StartLspId
-		startLspId = make([]byte, sn.Base.IdLength+2)
+		startLspId := make([]byte, sn.Base.IdLength+2)
 		copy(startLspId, data[11+sn.Base.IdLength:13+sn.Base.IdLength*2])
 		sn.StartLspId = startLspId
 		//
 		// EndLspId
-		endLspId = make([]byte, sn.Base.IdLength+2)
+		endLspId := make([]byte, sn.Base.IdLength+2)
 		copy(endLspId, data[13+sn.Base.IdLength*2:15+sn.Base.IdLength*3])
 		sn.EndLspId = endLspId
 	}
@@ -96,18 +94,14 @@ func (sn *SnPdu) DecodeFromBytes(data []byte) error {
 
 func (sn *SnPdu) Serialize() ([]byte, error) {
 	data, err := sn.Base.Serialize()
-	if err {
+	if err != nil {
 		return data, err
-	}
-	offset, err := sn.VlfOffset()
-	if err != nil || len(data) < offset {
-		return nil, errors.New("")
 	}
 	//
 	// SourceId
 	copy(data[10:11+sn.Base.IdLength], sn.SourceId)
-	if PduType == PDU_TYPE_LEVEL1_CSNP ||
-		PduType == PDU_TYPE_LEVEL2_CSNP {
+	if sn.Base.PduType == PDU_TYPE_LEVEL1_CSNP ||
+		sn.Base.PduType == PDU_TYPE_LEVEL2_CSNP {
 		//
 		// StartLspId
 		copy(data[11+sn.Base.IdLength:13+sn.Base.IdLength*2], sn.StartLspId)

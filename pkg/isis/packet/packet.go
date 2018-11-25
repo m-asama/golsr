@@ -4,9 +4,20 @@ import (
 	"fmt"
 )
 
+const (
+	SYSTEM_ID_LENGTH    = 6
+	NEIGHBOUR_ID_LENGTH = SYSTEM_ID_LENGTH + 1
+	LSP_ID_LENGTH       = SYSTEM_ID_LENGTH + 2
+)
+
 type IsisPdu interface {
 	String() string
-	VlfOffset() (uint16, error)
+	DecodeFromBytes(data []byte) error
+	Serialize() ([]byte, error)
+}
+
+type IsisTlv interface {
+	String() string
 	DecodeFromBytes(data []byte) error
 	Serialize() ([]byte, error)
 }
@@ -90,4 +101,190 @@ func (isType IsType) String() string {
 		return "IS_TYPE_LEVEL2_IS"
 	}
 	return fmt.Sprintf("IsType(%d)", isType)
+}
+
+type MetricType uint8
+
+const (
+	_                    MetricType = iota
+	METRIC_TYPE_INTERNAL            = 0x00
+	METRIC_TYPE_EXTERNAL            = 0x40
+)
+
+func (metricType MetricType) String() string {
+	switch metricType {
+	case METRIC_TYPE_INTERNAL:
+		return "METRIC_TYPE_INTERNAL"
+	case METRIC_TYPE_EXTERNAL:
+		return "METRIC_TYPE_EXTERNAL"
+	}
+	return fmt.Sprintf("MetricType(%d)", metricType)
+}
+
+type AuthType uint8
+
+const (
+	_                                AuthType = iota
+	AUTH_TYPE_CLEARTEXT_PASSWORD              = 0x01
+	AUTH_TYPE_ROUTING_DOMAIN_PRIVATE          = 0xff
+)
+
+func (authType AuthType) String() string {
+	switch authType {
+	case AUTH_TYPE_CLEARTEXT_PASSWORD:
+		return "AUTH_TYPE_CLEARTEXT_PASSWORD"
+	case AUTH_TYPE_ROUTING_DOMAIN_PRIVATE:
+		return "AUTH_TYPE_ROUTING_DOMAIN_PRIVATE"
+	}
+	return fmt.Sprintf("AuthType(%d)", authType)
+}
+
+type NlpId uint8
+
+const (
+	_           NlpId = iota
+	NLP_ID_IPV4       = 0xcc
+	NLP_ID_IPV6       = 0x8e
+)
+
+func (nlpId NlpId) String() string {
+	switch nlpId {
+	case NLP_ID_IPV4:
+		return "NLP_ID_IPV4"
+	case NLP_ID_IPV6:
+		return "NLP_ID_IPV6"
+	}
+	return fmt.Sprintf("NlpId(%d)", nlpId)
+}
+
+type InterDomainInfoType uint8
+
+const (
+	_                                 InterDomainInfoType = iota
+	INTER_DOMAIN_INFO_TYPE_RESERVED                       = 0x00
+	INTER_DOMAIN_INFO_TYPE_LOCAL                          = 0x01
+	INTER_DOMAIN_INFO_TYPE_AS_NUM_TAG                     = 0x02
+)
+
+func (interDomainInfoType InterDomainInfoType) String() string {
+	switch interDomainInfoType {
+	case INTER_DOMAIN_INFO_TYPE_RESERVED:
+		return "INTER_DOMAIN_INFO_TYPE_RESERVED"
+	case INTER_DOMAIN_INFO_TYPE_LOCAL:
+		return "INTER_DOMAIN_INFO_TYPE_LOCAL"
+	case INTER_DOMAIN_INFO_TYPE_AS_NUM_TAG:
+		return "INTER_DOMAIN_INFO_TYPE_AS_NUM_TAG"
+	}
+	return fmt.Sprintf("InterDomainInfoType(%d)", interDomainInfoType)
+}
+
+type Adj3wayState uint8
+
+const (
+	_                           Adj3wayState = iota
+	ADJ_3WAY_STATE_UP                        = 0x00
+	ADJ_3WAY_STATE_INITIALIZING              = 0x01
+	ADJ_3WAY_STATE_DOWN                      = 0x02
+)
+
+func (adj3wayState Adj3wayState) String() string {
+	switch adj3wayState {
+	case ADJ_3WAY_STATE_UP:
+		return "ADJ_3WAY_STATE_UP"
+	case ADJ_3WAY_STATE_INITIALIZING:
+		return "ADJ_3WAY_STATE_INITIALIZING"
+	case ADJ_3WAY_STATE_DOWN:
+		return "ADJ_3WAY_STATE_DOWN"
+	}
+	return fmt.Sprintf("Adj3wayState(%d)", adj3wayState)
+}
+
+type TlvCode uint8
+
+const (
+	_ TlvCode = iota
+	// ISO10589
+	TLV_CODE_AREA_ADDRESSES             = 0x01
+	TLV_CODE_IS_NEIGHBOURS_LSP          = 0x02
+	TLV_CODE_ES_NEIGHBOURS              = 0x03
+	TLV_CODE_PARTITION_DESIGNATED_L2_IS = 0x04
+	TLV_CODE_PREFIX_NEIGHBOURS          = 0x05
+	TLV_CODE_IS_NEIGHBOURS_HELLO        = 0x06
+	TLV_CODE_IS_NEIGHBOURS_VARIABLE     = 0x07
+	TLV_CODE_PADDING                    = 0x08
+	TLV_CODE_ESP_ENTRIES                = 0x09
+	TLV_CODE_AUTH_INFO                  = 0x0a
+	TLV_CODE_LSP_BUFF_SIZE              = 0x0e
+	// RFC1195
+	TLV_CODE_IP_INTERNAL_REACH_INFO          = 0x80
+	TLV_CODE_PROTOCOLS_SUPPORTED             = 0x81
+	TLV_CODE_IP_EXTERNAL_REACH_INFO          = 0x82
+	TLV_CODE_INTER_DOMAIN_ROUTING_PROTO_INFO = 0x83
+	TLV_CODE_IP_INTERFACE_ADDRESS            = 0x84
+	TLV_CODE_AUTHENTICATION_INFO             = 0x85
+	// RFC5301
+	TLV_CODE_DYNAMIC_HOSTNAME = 0x89
+	// RFC5303
+	TLV_CODE_P2P_3WAY_ADJ = 0xf0
+	// RFC5305
+	TLV_CODE_EXTENDED_IS_REACHABILITY      = 0x16
+	TLV_CODE_TRAFFIC_ENGINEERING_ROUTER_ID = 0x86
+	TLV_CODE_EXTENDED_IP_REACHABILITY      = 0x87
+	// RFC5308
+	TLV_CODE_IPV6_REACHABILITY      = 0xec
+	TLV_CODE_IPV6_INTERFACE_ADDRESS = 0xe8
+)
+
+func (tlvCode TlvCode) String() string {
+	switch tlvCode {
+	case TLV_CODE_AREA_ADDRESSES:
+		return "TLV_CODE_AREA_ADDRESSES"
+	case TLV_CODE_IS_NEIGHBOURS_LSP:
+		return "TLV_CODE_IS_NEIGHBOURS_LSP"
+	case TLV_CODE_ES_NEIGHBOURS:
+		return "TLV_CODE_ES_NEIGHBOURS"
+	case TLV_CODE_PARTITION_DESIGNATED_L2_IS:
+		return "TLV_CODE_PARTITION_DESIGNATED_L2_IS"
+	case TLV_CODE_PREFIX_NEIGHBOURS:
+		return "TLV_CODE_PREFIX_NEIGHBOURS"
+	case TLV_CODE_IS_NEIGHBOURS_HELLO:
+		return "TLV_CODE_IS_NEIGHBOURS_HELLO"
+	case TLV_CODE_IS_NEIGHBOURS_VARIABLE:
+		return "TLV_CODE_IS_NEIGHBOURS_VARIABLE"
+	case TLV_CODE_PADDING:
+		return "TLV_CODE_PADDING"
+	case TLV_CODE_ESP_ENTRIES:
+		return "TLV_CODE_ESP_ENTRIES"
+	case TLV_CODE_AUTH_INFO:
+		return "TLV_CODE_AUTH_INFO"
+	case TLV_CODE_LSP_BUFF_SIZE:
+		return "TLV_CODE_LSP_BUFF_SIZE"
+	case TLV_CODE_IP_INTERNAL_REACH_INFO:
+		return "TLV_CODE_IP_INTERNAL_REACH_INFO"
+	case TLV_CODE_PROTOCOLS_SUPPORTED:
+		return "TLV_CODE_PROTOCOLS_SUPPORTED"
+	case TLV_CODE_IP_EXTERNAL_REACH_INFO:
+		return "TLV_CODE_IP_EXTERNAL_REACH_INFO"
+	case TLV_CODE_INTER_DOMAIN_ROUTING_PROTO_INFO:
+		return "TLV_CODE_INTER_DOMAIN_ROUTING_PROTO_INFO"
+	case TLV_CODE_IP_INTERFACE_ADDRESS:
+		return "TLV_CODE_IP_INTERFACE_ADDRESS"
+	case TLV_CODE_AUTHENTICATION_INFO:
+		return "TLV_CODE_AUTHENTICATION_INFO"
+	case TLV_CODE_DYNAMIC_HOSTNAME:
+		return "TLV_CODE_DYNAMIC_HOSTNAME"
+	case TLV_CODE_P2P_3WAY_ADJ:
+		return "TLV_CODE_P2P_3WAY_ADJ"
+	case TLV_CODE_EXTENDED_IS_REACHABILITY:
+		return "TLV_CODE_EXTENDED_IS_REACHABILITY"
+	case TLV_CODE_TRAFFIC_ENGINEERING_ROUTER_ID:
+		return "TLV_CODE_TRAFFIC_ENGINEERING_ROUTER_ID"
+	case TLV_CODE_EXTENDED_IP_REACHABILITY:
+		return "TLV_CODE_EXTENDED_IP_REACHABILITY"
+	case TLV_CODE_IPV6_REACHABILITY:
+		return "TLV_CODE_IPV6_REACHABILITY"
+	case TLV_CODE_IPV6_INTERFACE_ADDRESS:
+		return "TLV_CODE_IPV6_INTERFACE_ADDRESS"
+	}
+	return fmt.Sprintf("TlvCode(%d)", tlvCode)
 }
