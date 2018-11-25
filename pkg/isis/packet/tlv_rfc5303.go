@@ -9,7 +9,7 @@ import (
 
 /*
 	Point-to-Point Three-Way Adjacency
-	Code - 240
+	code - 240
 	Length -
 	Value -
 	+------------------------+
@@ -24,7 +24,7 @@ import (
 */
 
 type p2p3wayAdjacencyTlv struct {
-	Base                   tlvBase
+	base                   tlvBase
 	Adj3wayState           Adj3wayState
 	ExtLocalCircuitId      uint32
 	neighbourSystemId      []byte
@@ -33,11 +33,11 @@ type p2p3wayAdjacencyTlv struct {
 
 func NewP2p3wayAdjacencyTlv() (*p2p3wayAdjacencyTlv, error) {
 	tlv := p2p3wayAdjacencyTlv{
-		Base: tlvBase{
-			Code: TLV_CODE_P2P_3WAY_ADJ,
+		base: tlvBase{
+			code: TLV_CODE_P2P_3WAY_ADJ,
 		},
 	}
-	tlv.Base.Init()
+	tlv.base.init()
 	tlv.neighbourSystemId = make([]byte, 0)
 	return &tlv, nil
 }
@@ -49,13 +49,13 @@ func (tlv *p2p3wayAdjacencyTlv) SetNeighbourSystemId(neighbourSystemId []byte) e
 	idtmp := make([]byte, len(neighbourSystemId))
 	copy(idtmp, neighbourSystemId)
 	tlv.neighbourSystemId = idtmp
-	tlv.Base.Length = 9 + uint8(len(idtmp))
+	tlv.base.length = 9 + uint8(len(idtmp))
 	return nil
 }
 
 func (tlv *p2p3wayAdjacencyTlv) String() string {
 	var b bytes.Buffer
-	b.WriteString(tlv.Base.String())
+	b.WriteString(tlv.base.String())
 	fmt.Fprintf(&b, "    DynamicHostname     ")
 	fmt.Fprintf(&b, "    AdjThreeWayState    %s\n", tlv.Adj3wayState)
 	fmt.Fprintf(&b, "    ExtLocalCircuitID   %08x\n", tlv.ExtLocalCircuitId)
@@ -69,34 +69,34 @@ func (tlv *p2p3wayAdjacencyTlv) String() string {
 }
 
 func (tlv *p2p3wayAdjacencyTlv) DecodeFromBytes(data []byte) error {
-	err := tlv.Base.DecodeFromBytes(data)
+	err := tlv.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
 	}
 	idlen := SYSTEM_ID_LENGTH
-	tlv.Adj3wayState = Adj3wayState(tlv.Base.Value[0])
+	tlv.Adj3wayState = Adj3wayState(tlv.base.value[0])
 	tlv.ExtLocalCircuitId = 0
-	if len(tlv.Base.Value) > 1 {
-		if len(tlv.Base.Value) < 5 {
+	if len(tlv.base.value) > 1 {
+		if len(tlv.base.value) < 5 {
 			return errors.New("P2p3wayAdjacencyTlv.DecodeFromBytes: length invalid")
 		}
-		tlv.ExtLocalCircuitId = binary.BigEndian.Uint32(tlv.Base.Value[1:5])
+		tlv.ExtLocalCircuitId = binary.BigEndian.Uint32(tlv.base.value[1:5])
 	}
 	tlv.neighbourSystemId = make([]byte, 0)
-	if len(tlv.Base.Value) > 5 {
-		if len(tlv.Base.Value) < 5+idlen {
+	if len(tlv.base.value) > 5 {
+		if len(tlv.base.value) < 5+idlen {
 			return errors.New("P2p3wayAdjacencyTlv.DecodeFromBytes: length invalid")
 		}
 		neighbourSystemId := make([]byte, idlen)
-		copy(neighbourSystemId, tlv.Base.Value[5:5+idlen])
+		copy(neighbourSystemId, tlv.base.value[5:5+idlen])
 		tlv.neighbourSystemId = neighbourSystemId
 	}
 	tlv.NeighExtLocalCircuitId = 0
-	if len(tlv.Base.Value) > 5+idlen {
-		if len(tlv.Base.Value) < 9+idlen {
+	if len(tlv.base.value) > 5+idlen {
+		if len(tlv.base.value) < 9+idlen {
 			return errors.New("P2p3wayAdjacencyTlv.DecodeFromBytes: length invalid")
 		}
-		tlv.NeighExtLocalCircuitId = binary.BigEndian.Uint32(tlv.Base.Value[5+idlen : 9+idlen])
+		tlv.NeighExtLocalCircuitId = binary.BigEndian.Uint32(tlv.base.value[5+idlen : 9+idlen])
 	}
 	return nil
 }
@@ -117,9 +117,9 @@ func (tlv *p2p3wayAdjacencyTlv) Serialize() ([]byte, error) {
 		copy(value[5:5+idlen], tlv.neighbourSystemId)
 		binary.BigEndian.PutUint32(value[5+idlen:9+idlen], tlv.NeighExtLocalCircuitId)
 	}
-	tlv.Base.Length = uint8(length)
-	tlv.Base.Value = value
-	data, err := tlv.Base.Serialize()
+	tlv.base.length = uint8(length)
+	tlv.base.value = value
+	data, err := tlv.base.Serialize()
 	if err != nil {
 		return data, err
 	}

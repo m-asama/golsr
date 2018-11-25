@@ -9,7 +9,7 @@ import (
 
 /*
 	IPv6 Reachability
-	Code - 236
+	code - 236
 	Length -
 	Value -
 	+------------------------+
@@ -31,10 +31,10 @@ type ipv6ReachabilityIpv6Prefix struct {
 	Metric              uint32
 	UpDownBit           bool
 	ExternalOriginalBit bool
-	SubTlvsPresence     bool
+	SubtlvsPresence     bool
 	prefixLength        uint8
 	ipv6Prefix          [4]uint32
-	unknownSubTlvs      [][]byte
+	unknownSubtlvs      [][]byte
 	ipv6ReachabilityTlv *ipv6ReachabilityTlv
 }
 
@@ -44,22 +44,22 @@ func NewIpv6ReachabilityIpv6Prefix(ipv6Prefix [4]uint32, prefixLength uint8) (*i
 	//copy(ip6ptmp, ipv6Prefix)
 	ipv6p.ipv6Prefix = ip6ptmp
 	ipv6p.prefixLength = prefixLength
-	ipv6p.unknownSubTlvs = make([][]byte, 0)
+	ipv6p.unknownSubtlvs = make([][]byte, 0)
 	return &ipv6p, nil
 }
 
 type ipv6ReachabilityTlv struct {
-	Base         tlvBase
+	base         tlvBase
 	ipv6Prefixes []ipv6ReachabilityIpv6Prefix
 }
 
 func NewIpv6ReachabilityTlv() (*ipv6ReachabilityTlv, error) {
 	tlv := ipv6ReachabilityTlv{
-		Base: tlvBase{
-			Code: TLV_CODE_IPV6_REACHABILITY,
+		base: tlvBase{
+			code: TLV_CODE_IPV6_REACHABILITY,
 		},
 	}
-	tlv.Base.Init()
+	tlv.base.init()
 	tlv.ipv6Prefixes = make([]ipv6ReachabilityIpv6Prefix, 0)
 	return &tlv, nil
 }
@@ -69,11 +69,11 @@ func (tlv *ipv6ReachabilityTlv) SetLength() {
 	for _, ptmp := range tlv.ipv6Prefixes {
 		pocts := (int(ptmp.prefixLength) + 7) / 8
 		length += 6 + pocts
-		for _, tlvtmp := range ptmp.unknownSubTlvs {
+		for _, tlvtmp := range ptmp.unknownSubtlvs {
 			length += len(tlvtmp)
 		}
 	}
-	tlv.Base.Length = uint8(length)
+	tlv.base.length = uint8(length)
 }
 
 func (tlv *ipv6ReachabilityTlv) AddIpv6Prefix(ipv6Prefix *ipv6ReachabilityIpv6Prefix) error {
@@ -126,7 +126,7 @@ func (tlv *ipv6ReachabilityTlv) RemoveIpv6Prefix(ipv6Prefix [4]uint32, prefixLen
 
 func (tlv *ipv6ReachabilityTlv) String() string {
 	var b bytes.Buffer
-	b.WriteString(tlv.Base.String())
+	b.WriteString(tlv.base.String())
 	for _, ptmp := range tlv.ipv6Prefixes {
 		fmt.Fprintf(&b, "    ipv6Prefix          ")
 		fmt.Fprintf(&b, "%08x", ptmp.ipv6Prefix[0])
@@ -138,8 +138,8 @@ func (tlv *ipv6ReachabilityTlv) String() string {
 		fmt.Fprintf(&b, "    Metric              %08x\n", ptmp.Metric)
 		fmt.Fprintf(&b, "    UpDownBit           %t\n", ptmp.UpDownBit)
 		fmt.Fprintf(&b, "    ExternalOriginalBit %t\n", ptmp.ExternalOriginalBit)
-		fmt.Fprintf(&b, "    SubTlvsPresence     %t\n", ptmp.SubTlvsPresence)
-		for _, tlvtmp := range ptmp.unknownSubTlvs {
+		fmt.Fprintf(&b, "    SubtlvsPresence     %t\n", ptmp.SubtlvsPresence)
+		for _, tlvtmp := range ptmp.unknownSubtlvs {
 			fmt.Fprintf(&b, "    unknownSubTlv       ")
 			for _, btmp := range tlvtmp {
 				fmt.Fprintf(&b, "%02x", btmp)
@@ -151,23 +151,23 @@ func (tlv *ipv6ReachabilityTlv) String() string {
 }
 
 func (tlv *ipv6ReachabilityTlv) DecodeFromBytes(data []byte) error {
-	err := tlv.Base.DecodeFromBytes(data)
+	err := tlv.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
 	}
 	ipv6Prefixes := make([]ipv6ReachabilityIpv6Prefix, 0)
 	i := 0
-	for i < len(tlv.Base.Value) {
-		if i+6 > len(tlv.Base.Value) {
+	for i < len(tlv.base.value) {
+		if i+6 > len(tlv.base.value) {
 			return errors.New("ipv6ReachabilityTlv.DecodeFromBytes: size invalid")
 		}
-		ltmp := int(tlv.Base.Value[i+5])
+		ltmp := int(tlv.base.value[i+5])
 		pocts := (ltmp + 7) / 8
-		if i+6+pocts > len(tlv.Base.Value) {
+		if i+6+pocts > len(tlv.base.value) {
 			return errors.New("ipv6ReachabilityTlv.DecodeFromBytes: size invalid")
 		}
 		ptmpb := make([]byte, 16)
-		copy(ptmpb[0:pocts], tlv.Base.Value[i+6:i+6+pocts])
+		copy(ptmpb[0:pocts], tlv.base.value[i+6:i+6+pocts])
 		//ptmp := make([]uint32, 4)
 		var ptmp [4]uint32
 		ptmp[0] = binary.BigEndian.Uint32(ptmpb[0:4])
@@ -178,30 +178,30 @@ func (tlv *ipv6ReachabilityTlv) DecodeFromBytes(data []byte) error {
 		if err != nil {
 			return err
 		}
-		ipv6Prefix.Metric = binary.BigEndian.Uint32(tlv.Base.Value[i+0 : i+4])
-		ipv6Prefix.UpDownBit = ((tlv.Base.Value[i+4] & 0x80) == 0x80)
-		ipv6Prefix.ExternalOriginalBit = ((tlv.Base.Value[i+4] & 0x40) == 0x40)
-		ipv6Prefix.SubTlvsPresence = ((tlv.Base.Value[i+4] & 0x20) == 0x20)
+		ipv6Prefix.Metric = binary.BigEndian.Uint32(tlv.base.value[i+0 : i+4])
+		ipv6Prefix.UpDownBit = ((tlv.base.value[i+4] & 0x80) == 0x80)
+		ipv6Prefix.ExternalOriginalBit = ((tlv.base.value[i+4] & 0x40) == 0x40)
+		ipv6Prefix.SubtlvsPresence = ((tlv.base.value[i+4] & 0x20) == 0x20)
 		j := 0
-		if ipv6Prefix.SubTlvsPresence {
-			for i+6+pocts+j < len(tlv.Base.Value) {
-				if i+6+pocts+j+2 > len(tlv.Base.Value) {
+		if ipv6Prefix.SubtlvsPresence {
+			for i+6+pocts+j < len(tlv.base.value) {
+				if i+6+pocts+j+2 > len(tlv.base.value) {
 					return errors.New("ipv6ReachabilityTlv.DecodeFromBytes: size invalid")
 				}
-				stlvl := int(tlv.Base.Value[i+6+pocts+j+2])
-				if i+6+pocts+j+2+stlvl > len(tlv.Base.Value) {
+				stlvl := int(tlv.base.value[i+6+pocts+j+2])
+				if i+6+pocts+j+2+stlvl > len(tlv.base.value) {
 					return errors.New("ipv6ReachabilityTlv.DecodeFromBytes: size invalid")
 				}
 				stlv := make([]byte, 2+stlvl)
-				copy(stlv, tlv.Base.Value[i+6+pocts+j:i+6+pocts+j+2+stlvl])
-				ipv6Prefix.unknownSubTlvs = append(ipv6Prefix.unknownSubTlvs, stlv)
+				copy(stlv, tlv.base.value[i+6+pocts+j:i+6+pocts+j+2+stlvl])
+				ipv6Prefix.unknownSubtlvs = append(ipv6Prefix.unknownSubtlvs, stlv)
 				j += 2 + stlvl
 			}
 		}
 		ipv6Prefixes = append(ipv6Prefixes, *ipv6Prefix)
 		i += 6 + pocts + j
 	}
-	if i != len(tlv.Base.Value) {
+	if i != len(tlv.base.value) {
 		return errors.New("ipv6ReachabilityTlv.DecodeFromBytes: decode error")
 	}
 	tlv.ipv6Prefixes = ipv6Prefixes
@@ -209,7 +209,7 @@ func (tlv *ipv6ReachabilityTlv) DecodeFromBytes(data []byte) error {
 }
 
 func (tlv *ipv6ReachabilityTlv) Serialize() ([]byte, error) {
-	length := int(tlv.Base.Length)
+	length := int(tlv.base.length)
 	value := make([]byte, length)
 	i := 0
 	for _, ptmp := range tlv.ipv6Prefixes {
@@ -220,7 +220,7 @@ func (tlv *ipv6ReachabilityTlv) Serialize() ([]byte, error) {
 		if ptmp.ExternalOriginalBit {
 			value[i+4] |= 0x40
 		}
-		if ptmp.SubTlvsPresence {
+		if ptmp.SubtlvsPresence {
 			value[i+4] |= 0x20
 		}
 		value[i+5] = uint8(ptmp.prefixLength)
@@ -232,7 +232,7 @@ func (tlv *ipv6ReachabilityTlv) Serialize() ([]byte, error) {
 		pocts := (int(ptmp.prefixLength) + 7) / 8
 		copy(value[i+6:i+6+pocts], ip6p[0:pocts])
 		j := 0
-		for _, ukstlv := range ptmp.unknownSubTlvs {
+		for _, ukstlv := range ptmp.unknownSubtlvs {
 			copy(value[i+6+pocts+j:], ukstlv)
 			j += len(ukstlv)
 		}
@@ -241,9 +241,9 @@ func (tlv *ipv6ReachabilityTlv) Serialize() ([]byte, error) {
 	if i != length {
 		return nil, errors.New("ipv6ReachabilityTlv.DecodeFromBytes: size error")
 	}
-	tlv.Base.Length = uint8(length)
-	tlv.Base.Value = value
-	data, err := tlv.Base.Serialize()
+	tlv.base.length = uint8(length)
+	tlv.base.value = value
+	data, err := tlv.base.Serialize()
 	if err != nil {
 		return data, err
 	}
@@ -252,7 +252,7 @@ func (tlv *ipv6ReachabilityTlv) Serialize() ([]byte, error) {
 
 /*
 	IPv6 Interface Address
-	Code - 232
+	code - 232
 	Length -
 	Value -
 	+------------------------+
@@ -266,17 +266,17 @@ func (tlv *ipv6ReachabilityTlv) Serialize() ([]byte, error) {
 */
 
 type ipv6InterfaceAddressTlv struct {
-	Base          tlvBase
+	base          tlvBase
 	ipv6Addresses [][4]uint32
 }
 
 func NewIpv6InterfaceAddressTlv() (*ipv6InterfaceAddressTlv, error) {
 	tlv := ipv6InterfaceAddressTlv{
-		Base: tlvBase{
-			Code: TLV_CODE_IPV6_INTERFACE_ADDRESS,
+		base: tlvBase{
+			code: TLV_CODE_IPV6_INTERFACE_ADDRESS,
 		},
 	}
-	tlv.Base.Init()
+	tlv.base.init()
 	tlv.ipv6Addresses = make([][4]uint32, 0)
 	return &tlv, nil
 }
@@ -295,7 +295,7 @@ func (tlv *ipv6InterfaceAddressTlv) AddIpv6Address(ipv6Address [4]uint32) error 
 		return errors.New("ipv6InterfaceAddressTlv.AddIpv6Address: size over")
 	}
 	tlv.ipv6Addresses = append(tlv.ipv6Addresses, ipv6Address)
-	tlv.Base.Length = uint8(length + 16)
+	tlv.base.length = uint8(length + 16)
 	return nil
 
 }
@@ -311,13 +311,13 @@ func (tlv *ipv6InterfaceAddressTlv) RemoveIpv6Address(ipv6Address [4]uint32) err
 		}
 	}
 	tlv.ipv6Addresses = ipv6Addresses
-	tlv.Base.Length = uint8(len(tlv.ipv6Addresses) * 4)
+	tlv.base.length = uint8(len(tlv.ipv6Addresses) * 4)
 	return nil
 }
 
 func (tlv *ipv6InterfaceAddressTlv) String() string {
 	var b bytes.Buffer
-	b.WriteString(tlv.Base.String())
+	b.WriteString(tlv.base.String())
 	for _, iatmp := range tlv.ipv6Addresses {
 		fmt.Fprintf(&b, "    IPv6Address         ")
 		fmt.Fprintf(&b, "%08x", iatmp[0])
@@ -330,26 +330,26 @@ func (tlv *ipv6InterfaceAddressTlv) String() string {
 }
 
 func (tlv *ipv6InterfaceAddressTlv) DecodeFromBytes(data []byte) error {
-	err := tlv.Base.DecodeFromBytes(data)
+	err := tlv.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
 	}
 	ipv6Addresses := make([][4]uint32, 0)
 	consumed := 0
-	for i := 0; i < len(tlv.Base.Value); i += 16 {
-		if i+16 > len(tlv.Base.Value) {
+	for i := 0; i < len(tlv.base.value); i += 16 {
+		if i+16 > len(tlv.base.value) {
 			return errors.New("ipv6InterfaceAddressTlv.DecodeFromBytes: value length overflow")
 		}
 		//ip6atmp = make([]uint32, 4)
 		var ip6atmp [4]uint32
-		ip6atmp[0] = binary.BigEndian.Uint32(tlv.Base.Value[i+0 : i+4])
-		ip6atmp[1] = binary.BigEndian.Uint32(tlv.Base.Value[i+4 : i+8])
-		ip6atmp[2] = binary.BigEndian.Uint32(tlv.Base.Value[i+8 : i+12])
-		ip6atmp[3] = binary.BigEndian.Uint32(tlv.Base.Value[i+12 : i+16])
+		ip6atmp[0] = binary.BigEndian.Uint32(tlv.base.value[i+0 : i+4])
+		ip6atmp[1] = binary.BigEndian.Uint32(tlv.base.value[i+4 : i+8])
+		ip6atmp[2] = binary.BigEndian.Uint32(tlv.base.value[i+8 : i+12])
+		ip6atmp[3] = binary.BigEndian.Uint32(tlv.base.value[i+12 : i+16])
 		ipv6Addresses = append(ipv6Addresses, ip6atmp)
 		consumed += 16
 	}
-	if consumed != len(tlv.Base.Value) {
+	if consumed != len(tlv.base.value) {
 		return errors.New("ipInterfaceAddressTlv.DecodeFromBytes: value length mismatch")
 	}
 	tlv.ipv6Addresses = ipv6Addresses
@@ -367,9 +367,9 @@ func (tlv *ipv6InterfaceAddressTlv) Serialize() ([]byte, error) {
 		binary.BigEndian.PutUint32(value[i+12:i+16], iatmp[3])
 		i += 16
 	}
-	tlv.Base.Length = uint8(length)
-	tlv.Base.Value = value
-	data, err := tlv.Base.Serialize()
+	tlv.base.length = uint8(length)
+	tlv.base.value = value
+	data, err := tlv.base.Serialize()
 	if err != nil {
 		return data, err
 	}

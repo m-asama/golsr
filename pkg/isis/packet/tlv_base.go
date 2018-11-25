@@ -7,25 +7,25 @@ import (
 )
 
 type tlvBase struct {
-	Code   TlvCode
-	Length uint8
-	Value  []byte
+	code   TlvCode
+	length uint8
+	value  []byte
 }
 
-func (base *tlvBase) Init() {
-	base.Value = make([]byte, 0)
+func (base *tlvBase) init() {
+	base.value = make([]byte, 0)
 }
 
 func (base *tlvBase) String() string {
 	var b bytes.Buffer
-	fmt.Fprintf(&b, "    Code                %s(%d)\n", base.Code.String(), base.Code)
-	fmt.Fprintf(&b, "    Length              %d\n", base.Length)
+	fmt.Fprintf(&b, "    code                %s(%d)\n", base.code.String(), base.code)
+	fmt.Fprintf(&b, "    Length              %d\n", base.length)
 	fmt.Fprintf(&b, "    Value              ")
-	for i := 0; i < len(base.Value); i++ {
+	for i := 0; i < len(base.value); i++ {
 		if i > 0 && i%20 == 0 {
 			fmt.Fprintf(&b, "\n                       ")
 		}
-		fmt.Fprintf(&b, " %02x", base.Value[i])
+		fmt.Fprintf(&b, " %02x", base.value[i])
 	}
 	fmt.Fprintf(&b, "\n")
 	return b.String()
@@ -35,24 +35,24 @@ func (base *tlvBase) DecodeFromBytes(data []byte) error {
 	if len(data) < 2 {
 		return errors.New("tlvBase.DecodeFromBytes: data length too short")
 	}
-	base.Code = TlvCode(data[0])
-	base.Length = data[1]
-	if len(data) != int(base.Length+2) {
+	base.code = TlvCode(data[0])
+	base.length = data[1]
+	if len(data) != int(base.length+2) {
 		return errors.New("tlvBase.DecodeFromBytes: data length mismatch")
 	}
-	base.Value = make([]byte, len(data)-2)
-	copy(base.Value, data[2:])
+	base.value = make([]byte, len(data)-2)
+	copy(base.value, data[2:])
 	return nil
 }
 
 func (base *tlvBase) Serialize() ([]byte, error) {
-	if len(base.Value) != int(base.Length) {
+	if len(base.value) != int(base.length) {
 		return nil, errors.New("tlvBase.Serialize: value length mismatch")
 	}
-	data := make([]byte, base.Length+2)
-	data[0] = uint8(base.Code)
-	data[1] = base.Length
-	copy(data[2:], base.Value)
+	data := make([]byte, base.length+2)
+	data[0] = uint8(base.code)
+	data[1] = base.length
+	copy(data[2:], base.value)
 	return data, nil
 }
 
@@ -93,7 +93,7 @@ func DecodeTlvFromBytes(data []byte) (IsisTlv, error) {
 	case TLV_CODE_LSP_BUFF_SIZE:
 		tlv, err = NewLspBuffSizeTlv()
 	default:
-		tlv, err = NewunknownTlv(code)
+		tlv, err = NewUnknownTlv(code)
 	}
 	if err != nil {
 		return nil, err
@@ -106,27 +106,27 @@ func DecodeTlvFromBytes(data []byte) (IsisTlv, error) {
 }
 
 type unknownTlv struct {
-	Base tlvBase
+	base tlvBase
 }
 
-func NewunknownTlv(code TlvCode) (*unknownTlv, error) {
+func NewUnknownTlv(code TlvCode) (*unknownTlv, error) {
 	tlv := unknownTlv{
-		Base: tlvBase{
-			Code: code,
+		base: tlvBase{
+			code: code,
 		},
 	}
-	tlv.Base.Init()
+	tlv.base.init()
 	return &tlv, nil
 }
 
 func (tlv *unknownTlv) String() string {
 	var b bytes.Buffer
-	b.WriteString(tlv.Base.String())
+	b.WriteString(tlv.base.String())
 	return b.String()
 }
 
 func (tlv *unknownTlv) DecodeFromBytes(data []byte) error {
-	err := tlv.Base.DecodeFromBytes(data)
+	err := tlv.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func (tlv *unknownTlv) DecodeFromBytes(data []byte) error {
 }
 
 func (tlv *unknownTlv) Serialize() ([]byte, error) {
-	data, err := tlv.Base.Serialize()
+	data, err := tlv.base.Serialize()
 	if err != nil {
 		return data, err
 	}

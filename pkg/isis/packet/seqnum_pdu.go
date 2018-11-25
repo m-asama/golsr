@@ -6,15 +6,15 @@ import (
 	"fmt"
 )
 
-type SnPdu struct {
-	Base PduBase
+type snPdu struct {
+	base pduBase
 
-	SourceId   []byte
-	StartLspId []byte // CSN
-	EndLspId   []byte // CSN
+	sourceId   []byte
+	startLspId []byte // CSN
+	endLspId   []byte // CSN
 }
 
-func NewSnPdu(pduType PduType, idLength uint8) (*SnPdu, error) {
+func NewSnPdu(pduType PduType) (*snPdu, error) {
 	if pduType != PDU_TYPE_LEVEL1_CSNP &&
 		pduType != PDU_TYPE_LEVEL2_CSNP &&
 		pduType != PDF_TYPE_LEVEL1_PSNP &&
@@ -24,41 +24,40 @@ func NewSnPdu(pduType PduType, idLength uint8) (*SnPdu, error) {
 	var lengthIndicator uint8
 	switch pduType {
 	case PDU_TYPE_LEVEL1_CSNP, PDU_TYPE_LEVEL2_CSNP:
-		lengthIndicator = 15 + idLength*3
+		lengthIndicator = 15 + SYSTEM_ID_LENGTH*3
 	case PDF_TYPE_LEVEL1_PSNP, PDF_TYPE_LEVEL2_PSNP:
-		lengthIndicator = 11 + idLength
+		lengthIndicator = 11 + SYSTEM_ID_LENGTH
 	}
-	sn := SnPdu{
-		Base: PduBase{
-			LengthIndicator: lengthIndicator,
-			IdLength:        idLength,
-			PduType:         pduType,
+	sn := snPdu{
+		base: pduBase{
+			lengthIndicator: lengthIndicator,
+			pduType:         pduType,
 		},
 	}
-	sn.Base.Init()
-	sn.SourceId = make([]byte, 0)
-	sn.StartLspId = make([]byte, 0)
-	sn.EndLspId = make([]byte, 0)
+	sn.base.init()
+	sn.sourceId = make([]byte, 0)
+	sn.startLspId = make([]byte, 0)
+	sn.endLspId = make([]byte, 0)
 	return &sn, nil
 }
 
-func (sn *SnPdu) String() string {
+func (sn *snPdu) String() string {
 	var b bytes.Buffer
-	b.WriteString(sn.Base.String())
+	b.WriteString(sn.base.String())
 	fmt.Fprintf(&b, "SourceId                ")
-	for t := range sn.SourceId {
+	for t := range sn.sourceId {
 		fmt.Fprintf(&b, "%02x", t)
 	}
 	fmt.Fprintf(&b, "\n")
-	if sn.Base.PduType == PDU_TYPE_LEVEL1_CSNP ||
-		sn.Base.PduType == PDU_TYPE_LEVEL2_CSNP {
+	if sn.base.pduType == PDU_TYPE_LEVEL1_CSNP ||
+		sn.base.pduType == PDU_TYPE_LEVEL2_CSNP {
 		fmt.Fprintf(&b, "StartLspId              ")
-		for t := range sn.StartLspId {
+		for t := range sn.startLspId {
 			fmt.Fprintf(&b, "%02x", t)
 		}
 		fmt.Fprintf(&b, "\n")
 		fmt.Fprintf(&b, "EndLspId                ")
-		for t := range sn.EndLspId {
+		for t := range sn.endLspId {
 			fmt.Fprintf(&b, "%02x", t)
 		}
 		fmt.Fprintf(&b, "\n")
@@ -66,48 +65,48 @@ func (sn *SnPdu) String() string {
 	return b.String()
 }
 
-func (sn *SnPdu) DecodeFromBytes(data []byte) error {
-	err := sn.Base.DecodeFromBytes(data)
+func (sn *snPdu) DecodeFromBytes(data []byte) error {
+	err := sn.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
 	}
 	//
 	// SourceId
-	sourceId := make([]byte, sn.Base.IdLength+1)
-	copy(sourceId, data[10:11+sn.Base.IdLength])
-	sn.SourceId = sourceId
-	if sn.Base.PduType == PDU_TYPE_LEVEL1_CSNP ||
-		sn.Base.PduType == PDU_TYPE_LEVEL2_CSNP {
+	sourceId := make([]byte, sn.base.idLength+1)
+	copy(sourceId, data[10:11+sn.base.idLength])
+	sn.sourceId = sourceId
+	if sn.base.pduType == PDU_TYPE_LEVEL1_CSNP ||
+		sn.base.pduType == PDU_TYPE_LEVEL2_CSNP {
 		//
 		// StartLspId
-		startLspId := make([]byte, sn.Base.IdLength+2)
-		copy(startLspId, data[11+sn.Base.IdLength:13+sn.Base.IdLength*2])
-		sn.StartLspId = startLspId
+		startLspId := make([]byte, sn.base.idLength+2)
+		copy(startLspId, data[11+sn.base.idLength:13+sn.base.idLength*2])
+		sn.startLspId = startLspId
 		//
 		// EndLspId
-		endLspId := make([]byte, sn.Base.IdLength+2)
-		copy(endLspId, data[13+sn.Base.IdLength*2:15+sn.Base.IdLength*3])
-		sn.EndLspId = endLspId
+		endLspId := make([]byte, sn.base.idLength+2)
+		copy(endLspId, data[13+sn.base.idLength*2:15+sn.base.idLength*3])
+		sn.endLspId = endLspId
 	}
 	return nil
 }
 
-func (sn *SnPdu) Serialize() ([]byte, error) {
-	data, err := sn.Base.Serialize()
+func (sn *snPdu) Serialize() ([]byte, error) {
+	data, err := sn.base.Serialize()
 	if err != nil {
 		return data, err
 	}
 	//
 	// SourceId
-	copy(data[10:11+sn.Base.IdLength], sn.SourceId)
-	if sn.Base.PduType == PDU_TYPE_LEVEL1_CSNP ||
-		sn.Base.PduType == PDU_TYPE_LEVEL2_CSNP {
+	copy(data[10:11+sn.base.idLength], sn.sourceId)
+	if sn.base.pduType == PDU_TYPE_LEVEL1_CSNP ||
+		sn.base.pduType == PDU_TYPE_LEVEL2_CSNP {
 		//
 		// StartLspId
-		copy(data[11+sn.Base.IdLength:13+sn.Base.IdLength*2], sn.StartLspId)
+		copy(data[11+sn.base.idLength:13+sn.base.idLength*2], sn.startLspId)
 		//
 		// EndLspId
-		copy(data[13+sn.Base.IdLength*2:15+sn.Base.IdLength*3], sn.EndLspId)
+		copy(data[13+sn.base.idLength*2:15+sn.base.idLength*3], sn.endLspId)
 	}
 	return data, nil
 }

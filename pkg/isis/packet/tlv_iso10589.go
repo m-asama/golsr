@@ -9,7 +9,7 @@ import (
 
 /*
 	Area Addresses:
-	Code - 1
+	code - 1
 	Length - total length of the value field.
 	Value -
 	+------------------------+
@@ -27,17 +27,17 @@ import (
 */
 
 type areaAddressesTlv struct {
-	Base          tlvBase
+	base          tlvBase
 	areaAddresses [][]byte
 }
 
 func NewAreaAddressesTlv() (*areaAddressesTlv, error) {
 	tlv := areaAddressesTlv{
-		Base: tlvBase{
-			Code: TLV_CODE_AREA_ADDRESSES,
+		base: tlvBase{
+			code: TLV_CODE_AREA_ADDRESSES,
 		},
 	}
-	tlv.Base.Init()
+	tlv.base.init()
 	tlv.areaAddresses = make([][]byte, 0)
 	return &tlv, nil
 }
@@ -57,7 +57,7 @@ func (tlv *areaAddressesTlv) AddAreaAddress(areaAddress []byte) error {
 	}
 	areaAddresses = append(areaAddresses, areaAddress)
 	tlv.areaAddresses = areaAddresses
-	tlv.Base.Length = uint8(length + 1 + len(areaAddress))
+	tlv.base.length = uint8(length + 1 + len(areaAddress))
 	return nil
 }
 
@@ -71,13 +71,13 @@ func (tlv *areaAddressesTlv) RemoveAreaAddress(areaAddress []byte) error {
 		}
 	}
 	tlv.areaAddresses = areaAddresses
-	tlv.Base.Length = uint8(length)
+	tlv.base.length = uint8(length)
 	return nil
 }
 
 func (tlv *areaAddressesTlv) String() string {
 	var b bytes.Buffer
-	b.WriteString(tlv.Base.String())
+	b.WriteString(tlv.base.String())
 	for _, areaAddress := range tlv.areaAddresses {
 		fmt.Fprintf(&b, "    AreaAddress         ")
 		for _, btmp := range areaAddress {
@@ -89,22 +89,22 @@ func (tlv *areaAddressesTlv) String() string {
 }
 
 func (tlv *areaAddressesTlv) DecodeFromBytes(data []byte) error {
-	err := tlv.Base.DecodeFromBytes(data)
+	err := tlv.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
 	}
 	areaAddresses := make([][]byte, 0)
 	consumed := 0
-	for i := 0; i < len(tlv.Base.Value); i += 1 + int(tlv.Base.Value[i]) {
-		if i+1+int(tlv.Base.Value[i]) > len(tlv.Base.Value) {
+	for i := 0; i < len(tlv.base.value); i += 1 + int(tlv.base.value[i]) {
+		if i+1+int(tlv.base.value[i]) > len(tlv.base.value) {
 			return errors.New("areaAddressesTlv.DecodeFromBytes: value length overflow")
 		}
-		areaAddress := make([]byte, tlv.Base.Value[i])
-		copy(areaAddress, tlv.Base.Value[i+1:i+1+int(tlv.Base.Value[i])])
+		areaAddress := make([]byte, tlv.base.value[i])
+		copy(areaAddress, tlv.base.value[i+1:i+1+int(tlv.base.value[i])])
 		areaAddresses = append(areaAddresses, areaAddress)
-		consumed += 1 + int(tlv.Base.Value[i])
+		consumed += 1 + int(tlv.base.value[i])
 	}
-	if consumed != len(tlv.Base.Value) {
+	if consumed != len(tlv.base.value) {
 		return errors.New("areaAddressesTlv.DecodeFromBytes: value length mismatch")
 	}
 	tlv.areaAddresses = areaAddresses
@@ -123,9 +123,9 @@ func (tlv *areaAddressesTlv) Serialize() ([]byte, error) {
 		copy(value[i+1:i+1+len(areaAddress)], areaAddress)
 		i += 1 + len(areaAddress)
 	}
-	tlv.Base.Length = uint8(length)
-	tlv.Base.Value = value
-	data, err := tlv.Base.Serialize()
+	tlv.base.length = uint8(length)
+	tlv.base.value = value
+	data, err := tlv.base.Serialize()
 	if err != nil {
 		return data, err
 	}
@@ -134,7 +134,7 @@ func (tlv *areaAddressesTlv) Serialize() ([]byte, error) {
 
 /*
 	Intermediate System Neighbours (LSPs)
-	Code - 2
+	code - 2
 	Length - 1 plus a multiple of (IDLength + 5).
 	Value -
 	+------------------------+
@@ -192,18 +192,18 @@ func NewIsNeighboursLspNeighbour(neighbourId []byte) (*isNeighboursLspNeighbour,
 }
 
 type isNeighboursLspTlv struct {
-	Base        tlvBase
+	base        tlvBase
 	VirtualFlag bool
 	neighbours  []isNeighboursLspNeighbour
 }
 
 func NewIsNeighboursLspTlv() (*isNeighboursLspTlv, error) {
 	tlv := isNeighboursLspTlv{
-		Base: tlvBase{
-			Code: TLV_CODE_IS_NEIGHBOURS_LSP,
+		base: tlvBase{
+			code: TLV_CODE_IS_NEIGHBOURS_LSP,
 		},
 	}
-	tlv.Base.Init()
+	tlv.base.init()
 	tlv.neighbours = make([]isNeighboursLspNeighbour, 0)
 	return &tlv, nil
 }
@@ -226,7 +226,7 @@ func (tlv *isNeighboursLspTlv) AddNeighbour(neighbour *isNeighboursLspNeighbour)
 	}
 	neighbours = append(neighbours, *neighbour)
 	tlv.neighbours = neighbours
-	tlv.Base.Length = uint8(1 + length + 4 + NEIGHBOUR_ID_LENGTH)
+	tlv.base.length = uint8(1 + length + 4 + NEIGHBOUR_ID_LENGTH)
 	return nil
 }
 
@@ -240,13 +240,13 @@ func (tlv *isNeighboursLspTlv) RemoveNeighbour(neighbourId []byte) error {
 		}
 	}
 	tlv.neighbours = neighbours
-	tlv.Base.Length = uint8(1 + length)
+	tlv.base.length = uint8(1 + length)
 	return nil
 }
 
 func (tlv *isNeighboursLspTlv) String() string {
 	var b bytes.Buffer
-	b.WriteString(tlv.Base.String())
+	b.WriteString(tlv.base.String())
 	fmt.Fprintf(&b, "    Virtual Flag        %t\n", tlv.VirtualFlag)
 	for _, ntmp := range tlv.neighbours {
 		fmt.Fprintf(&b, "    DefaultMetric       %d\n", ntmp.DefaultMetric)
@@ -270,35 +270,35 @@ func (tlv *isNeighboursLspTlv) String() string {
 }
 
 func (tlv *isNeighboursLspTlv) DecodeFromBytes(data []byte) error {
-	err := tlv.Base.DecodeFromBytes(data)
+	err := tlv.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
 	}
 	neighbours := make([]isNeighboursLspNeighbour, 0)
 	consumed := 1
-	for i := 1; i < len(tlv.Base.Value); i += 4 + NEIGHBOUR_ID_LENGTH {
+	for i := 1; i < len(tlv.base.value); i += 4 + NEIGHBOUR_ID_LENGTH {
 		ntmp := &isNeighboursLspNeighbour{}
-		ntmp.DefaultMetric = (tlv.Base.Value[i+0] & 0x3f)
-		ntmp.DefaultMetricType = MetricType(tlv.Base.Value[i+0] & 0x40)
-		ntmp.DelayMetric = (tlv.Base.Value[i+1] & 0x3f)
-		ntmp.DelayMetricSupported = ((tlv.Base.Value[i+1] & 0x80) == 0x00)
-		ntmp.DelayMetricType = MetricType(tlv.Base.Value[i+1] & 0x40)
-		ntmp.ExpenseMetric = (tlv.Base.Value[i+2] & 0x3f)
-		ntmp.ExpenseMetricSupported = ((tlv.Base.Value[i+2] & 0x80) == 0x00)
-		ntmp.ExpenseMetricType = MetricType(tlv.Base.Value[i+2] & 0x40)
-		ntmp.ErrorMetric = (tlv.Base.Value[i+3] & 0x3f)
-		ntmp.ErrorMetricSupported = ((tlv.Base.Value[i+3] & 0x80) == 0x00)
-		ntmp.ErrorMetricType = MetricType(tlv.Base.Value[i+3] & 0x40)
+		ntmp.DefaultMetric = (tlv.base.value[i+0] & 0x3f)
+		ntmp.DefaultMetricType = MetricType(tlv.base.value[i+0] & 0x40)
+		ntmp.DelayMetric = (tlv.base.value[i+1] & 0x3f)
+		ntmp.DelayMetricSupported = ((tlv.base.value[i+1] & 0x80) == 0x00)
+		ntmp.DelayMetricType = MetricType(tlv.base.value[i+1] & 0x40)
+		ntmp.ExpenseMetric = (tlv.base.value[i+2] & 0x3f)
+		ntmp.ExpenseMetricSupported = ((tlv.base.value[i+2] & 0x80) == 0x00)
+		ntmp.ExpenseMetricType = MetricType(tlv.base.value[i+2] & 0x40)
+		ntmp.ErrorMetric = (tlv.base.value[i+3] & 0x3f)
+		ntmp.ErrorMetricSupported = ((tlv.base.value[i+3] & 0x80) == 0x00)
+		ntmp.ErrorMetricType = MetricType(tlv.base.value[i+3] & 0x40)
 		ntmp.neighbourId = make([]byte, 1+SYSTEM_ID_LENGTH)
-		copy(ntmp.neighbourId, tlv.Base.Value[i+4:i+4+NEIGHBOUR_ID_LENGTH])
+		copy(ntmp.neighbourId, tlv.base.value[i+4:i+4+NEIGHBOUR_ID_LENGTH])
 		neighbours = append(neighbours, *ntmp)
 		consumed += 4 + NEIGHBOUR_ID_LENGTH
 	}
-	if consumed != len(tlv.Base.Value) {
+	if consumed != len(tlv.base.value) {
 		return errors.New("IsNeighboursLspTlv.DecodeFromBytes: value length mismatch")
 	}
 	tlv.VirtualFlag = false
-	if tlv.Base.Value[0] == 0x01 {
+	if tlv.base.value[0] == 0x01 {
 		tlv.VirtualFlag = true
 	}
 	tlv.neighbours = neighbours
@@ -341,9 +341,9 @@ func (tlv *isNeighboursLspTlv) Serialize() ([]byte, error) {
 		copy(value[i+4:i+4+NEIGHBOUR_ID_LENGTH], ntmp.neighbourId)
 		i += 4 + NEIGHBOUR_ID_LENGTH
 	}
-	tlv.Base.Length = uint8(length)
-	tlv.Base.Value = value
-	data, err := tlv.Base.Serialize()
+	tlv.base.length = uint8(length)
+	tlv.base.value = value
+	data, err := tlv.base.Serialize()
 	if err != nil {
 		return data, err
 	}
@@ -352,7 +352,7 @@ func (tlv *isNeighboursLspTlv) Serialize() ([]byte, error) {
 
 /*
 	End System Neighbours
-	Code - 3
+	code - 3
 	Length - 4, plus a multiple of IDLength.
 	Value -
 	+------------------------+
@@ -377,7 +377,7 @@ func (tlv *isNeighboursLspTlv) Serialize() ([]byte, error) {
 
 /*
 	Partition Designated Level 2 Intermediate System
-	Code - 4
+	code - 4
 	Length - IDLength
 	Value -
 	+------------------------+
@@ -386,17 +386,17 @@ func (tlv *isNeighboursLspTlv) Serialize() ([]byte, error) {
 */
 
 type partitionDesignatedL2IsTlv struct {
-	Base             tlvBase
+	base             tlvBase
 	designatedL2IsId []byte
 }
 
 func NewPartitionDesignatedL2IsTlv() (*partitionDesignatedL2IsTlv, error) {
 	tlv := partitionDesignatedL2IsTlv{
-		Base: tlvBase{
-			Code: TLV_CODE_PARTITION_DESIGNATED_L2_IS,
+		base: tlvBase{
+			code: TLV_CODE_PARTITION_DESIGNATED_L2_IS,
 		},
 	}
-	tlv.Base.Init()
+	tlv.base.init()
 	tlv.designatedL2IsId = make([]byte, SYSTEM_ID_LENGTH)
 	return &tlv, nil
 }
@@ -413,7 +413,7 @@ func (tlv *partitionDesignatedL2IsTlv) SetDesignatedL2IsId(designatedL2IsId []by
 
 func (tlv *partitionDesignatedL2IsTlv) String() string {
 	var b bytes.Buffer
-	b.WriteString(tlv.Base.String())
+	b.WriteString(tlv.base.String())
 	fmt.Fprintf(&b, "    Designated L2 IS ID ")
 	for _, btmp := range tlv.designatedL2IsId {
 		fmt.Fprintf(&b, "%02x", btmp)
@@ -423,15 +423,15 @@ func (tlv *partitionDesignatedL2IsTlv) String() string {
 }
 
 func (tlv *partitionDesignatedL2IsTlv) DecodeFromBytes(data []byte) error {
-	err := tlv.Base.DecodeFromBytes(data)
+	err := tlv.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
 	}
-	if len(tlv.Base.Value) != SYSTEM_ID_LENGTH {
+	if len(tlv.base.value) != SYSTEM_ID_LENGTH {
 		return errors.New("PartitionDesignatedL2IsTlv.DecodeFromBytes: value length mismatch")
 	}
 	designatedL2IsId := make([]byte, SYSTEM_ID_LENGTH)
-	copy(designatedL2IsId, tlv.Base.Value)
+	copy(designatedL2IsId, tlv.base.value)
 	tlv.designatedL2IsId = designatedL2IsId
 	return nil
 }
@@ -442,9 +442,9 @@ func (tlv *partitionDesignatedL2IsTlv) Serialize() ([]byte, error) {
 	}
 	value := make([]byte, SYSTEM_ID_LENGTH)
 	copy(value, tlv.designatedL2IsId)
-	tlv.Base.Length = SYSTEM_ID_LENGTH
-	tlv.Base.Value = value
-	data, err := tlv.Base.Serialize()
+	tlv.base.length = SYSTEM_ID_LENGTH
+	tlv.base.value = value
+	data, err := tlv.base.Serialize()
 	if err != nil {
 		return data, err
 	}
@@ -453,7 +453,7 @@ func (tlv *partitionDesignatedL2IsTlv) Serialize() ([]byte, error) {
 
 /*
 	Prefix Neighbours
-	Code - 5
+	code - 5
 	Length - Total length of the value field.
 	Value -
 	+---+---+----------------+
@@ -480,7 +480,7 @@ func (tlv *partitionDesignatedL2IsTlv) Serialize() ([]byte, error) {
 
 /*
 	Intermediate System Neighbours (Hellos)
-	Code - 6
+	code - 6
 	Length - total length of the value field in octets.
 	Value -
 	+------------------------+
@@ -495,17 +495,17 @@ func (tlv *partitionDesignatedL2IsTlv) Serialize() ([]byte, error) {
 */
 
 type isNeighboursHelloTlv struct {
-	Base         tlvBase
+	base         tlvBase
 	lanAddresses [][]byte
 }
 
 func NewIsNeighboursHelloTlv() (*isNeighboursHelloTlv, error) {
 	tlv := isNeighboursHelloTlv{
-		Base: tlvBase{
-			Code: TLV_CODE_IS_NEIGHBOURS_HELLO,
+		base: tlvBase{
+			code: TLV_CODE_IS_NEIGHBOURS_HELLO,
 		},
 	}
-	tlv.Base.Init()
+	tlv.base.init()
 	tlv.lanAddresses = make([][]byte, 0)
 	return &tlv, nil
 }
@@ -524,7 +524,7 @@ func (tlv *isNeighboursHelloTlv) AddLanAddress(lanAddress []byte) error {
 		return errors.New("IsNeighboursHelloTlv.AddLanAddress: size over")
 	}
 	tlv.lanAddresses = append(tlv.lanAddresses, lanAddress)
-	tlv.Base.Length = uint8(length + 6)
+	tlv.base.length = uint8(length + 6)
 	return nil
 }
 
@@ -536,13 +536,13 @@ func (tlv *isNeighboursHelloTlv) RemoveLanAddress(lanAddress []byte) error {
 		}
 	}
 	tlv.lanAddresses = lanAddresses
-	tlv.Base.Length = uint8(6 * len(tlv.lanAddresses))
+	tlv.base.length = uint8(6 * len(tlv.lanAddresses))
 	return nil
 }
 
 func (tlv *isNeighboursHelloTlv) String() string {
 	var b bytes.Buffer
-	b.WriteString(tlv.Base.String())
+	b.WriteString(tlv.base.String())
 	for _, lanAddress := range tlv.lanAddresses {
 		fmt.Fprintf(&b, "    LanAddress          ")
 		for _, btmp := range lanAddress {
@@ -554,22 +554,22 @@ func (tlv *isNeighboursHelloTlv) String() string {
 }
 
 func (tlv *isNeighboursHelloTlv) DecodeFromBytes(data []byte) error {
-	err := tlv.Base.DecodeFromBytes(data)
+	err := tlv.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
 	}
 	lanAddresses := make([][]byte, 0)
 	consumed := 0
-	for i := 0; i < len(tlv.Base.Value); i += 6 {
-		if i+6 > len(tlv.Base.Value) {
+	for i := 0; i < len(tlv.base.value); i += 6 {
+		if i+6 > len(tlv.base.value) {
 			return errors.New("IsNeighboursHelloTlv.DecodeFromBytes: value length overflow")
 		}
 		lanAddress := make([]byte, 6)
-		copy(lanAddress, tlv.Base.Value[i:i+6])
+		copy(lanAddress, tlv.base.value[i:i+6])
 		lanAddresses = append(lanAddresses, lanAddress)
 		consumed += 6
 	}
-	if consumed != len(tlv.Base.Value) {
+	if consumed != len(tlv.base.value) {
 		return errors.New("IsNeighboursHelloTlv.DecodeFromBytes: value length mismatch")
 	}
 	tlv.lanAddresses = lanAddresses
@@ -584,9 +584,9 @@ func (tlv *isNeighboursHelloTlv) Serialize() ([]byte, error) {
 		copy(value[i:i+6], lanAddress)
 		i += 6
 	}
-	tlv.Base.Length = uint8(length)
-	tlv.Base.Value = value
-	data, err := tlv.Base.Serialize()
+	tlv.base.length = uint8(length)
+	tlv.base.value = value
+	data, err := tlv.base.Serialize()
 	if err != nil {
 		return data, err
 	}
@@ -595,7 +595,7 @@ func (tlv *isNeighboursHelloTlv) Serialize() ([]byte, error) {
 
 /*
 	Intermediate System Neighbours (variable length)
-	Code - 7
+	code - 7
 	Length - Total length of the value field in octets.
 	Value -
 	+------------------------+
@@ -612,7 +612,7 @@ func (tlv *isNeighboursHelloTlv) Serialize() ([]byte, error) {
 
 /*
 	Padding
-	Code - 8
+	code - 8
 	Length - Total length of the value field(may be zero).
 	Value -
 	+------------------------+
@@ -621,34 +621,34 @@ func (tlv *isNeighboursHelloTlv) Serialize() ([]byte, error) {
 */
 
 type paddingTlv struct {
-	Base tlvBase
+	base tlvBase
 }
 
 func NewPaddingTlv() (*paddingTlv, error) {
 	tlv := paddingTlv{
-		Base: tlvBase{
-			Code: TLV_CODE_PADDING,
+		base: tlvBase{
+			code: TLV_CODE_PADDING,
 		},
 	}
-	tlv.Base.Init()
+	tlv.base.init()
 	return &tlv, nil
 }
 
 func (tlv *paddingTlv) SetLength(length uint8) error {
 	value := make([]byte, length)
-	tlv.Base.Length = length
-	tlv.Base.Value = value
+	tlv.base.length = length
+	tlv.base.value = value
 	return nil
 }
 
 func (tlv *paddingTlv) String() string {
 	var b bytes.Buffer
-	b.WriteString(tlv.Base.String())
+	b.WriteString(tlv.base.String())
 	return b.String()
 }
 
 func (tlv *paddingTlv) DecodeFromBytes(data []byte) error {
-	err := tlv.Base.DecodeFromBytes(data)
+	err := tlv.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
 	}
@@ -656,8 +656,8 @@ func (tlv *paddingTlv) DecodeFromBytes(data []byte) error {
 }
 
 func (tlv *paddingTlv) Serialize() ([]byte, error) {
-	tlv.Base.Value = make([]byte, tlv.Base.Length)
-	data, err := tlv.Base.Serialize()
+	tlv.base.value = make([]byte, tlv.base.length)
+	data, err := tlv.base.Serialize()
 	if err != nil {
 		return data, err
 	}
@@ -666,7 +666,7 @@ func (tlv *paddingTlv) Serialize() ([]byte, error) {
 
 /*
 	LSP Entries
-	Code - 9
+	code - 9
 	Length - Total length of the value field.
 	Value -
 	+------------------------+
@@ -710,17 +710,17 @@ func NewLspEntriesLspEntry(lspId []byte) (*lspEntriesLspEntry, error) {
 }
 
 type lspEntriesTlv struct {
-	Base       tlvBase
+	base       tlvBase
 	lspEntries []lspEntriesLspEntry
 }
 
 func NewLspEntriesTlv() (*lspEntriesTlv, error) {
 	tlv := lspEntriesTlv{
-		Base: tlvBase{
-			Code: TLV_CODE_ESP_ENTRIES,
+		base: tlvBase{
+			code: TLV_CODE_ESP_ENTRIES,
 		},
 	}
-	tlv.Base.Init()
+	tlv.base.init()
 	tlv.lspEntries = make([]lspEntriesLspEntry, 0)
 	return &tlv, nil
 }
@@ -740,7 +740,7 @@ func (tlv *lspEntriesTlv) AddLspEntry(lspEntry *lspEntriesLspEntry) error {
 		return errors.New("LspEntriesTlv.AddLspEntry: size over")
 	}
 	tlv.lspEntries = append(tlv.lspEntries, *lspEntry)
-	tlv.Base.Length = uint8(length + 8 + LSP_ID_LENGTH)
+	tlv.base.length = uint8(length + 8 + LSP_ID_LENGTH)
 	return nil
 }
 
@@ -754,13 +754,13 @@ func (tlv *lspEntriesTlv) RemoveLspEntry(lspId []byte) error {
 		}
 	}
 	tlv.lspEntries = lspEntries
-	tlv.Base.Length = uint8(length)
+	tlv.base.length = uint8(length)
 	return nil
 }
 
 func (tlv *lspEntriesTlv) String() string {
 	var b bytes.Buffer
-	b.WriteString(tlv.Base.String())
+	b.WriteString(tlv.base.String())
 	for _, ltmp := range tlv.lspEntries {
 		fmt.Fprintf(&b, "    RemainingLifetime   %d\n", ltmp.RemainingLifetime)
 		fmt.Fprintf(&b, "    LspId               ")
@@ -776,26 +776,26 @@ func (tlv *lspEntriesTlv) String() string {
 
 func (tlv *lspEntriesTlv) DecodeFromBytes(data []byte) error {
 	lidlen := LSP_ID_LENGTH
-	err := tlv.Base.DecodeFromBytes(data)
+	err := tlv.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
 	}
 	lspEntries := make([]lspEntriesLspEntry, 0)
 	consumed := 0
-	for i := 0; i < len(tlv.Base.Value); i += 8 + LSP_ID_LENGTH {
+	for i := 0; i < len(tlv.base.value); i += 8 + LSP_ID_LENGTH {
 		lspid := make([]byte, LSP_ID_LENGTH)
-		copy(lspid, tlv.Base.Value[i+2:i+2+lidlen])
+		copy(lspid, tlv.base.value[i+2:i+2+lidlen])
 		ltmp, err := NewLspEntriesLspEntry(lspid)
 		if err != nil {
 			return errors.New("lspEntriesTlv.DecodeFromBytes: LSP ID invalid")
 		}
-		ltmp.RemainingLifetime = binary.BigEndian.Uint16(tlv.Base.Value[i+0 : i+2])
-		ltmp.LspSeqNum = binary.BigEndian.Uint32(tlv.Base.Value[i+2+lidlen : i+6+lidlen])
-		ltmp.Checksum = binary.BigEndian.Uint16(tlv.Base.Value[i+6+lidlen : i+8+lidlen])
+		ltmp.RemainingLifetime = binary.BigEndian.Uint16(tlv.base.value[i+0 : i+2])
+		ltmp.LspSeqNum = binary.BigEndian.Uint32(tlv.base.value[i+2+lidlen : i+6+lidlen])
+		ltmp.Checksum = binary.BigEndian.Uint16(tlv.base.value[i+6+lidlen : i+8+lidlen])
 		lspEntries = append(lspEntries, *ltmp)
 		consumed += 8 + LSP_ID_LENGTH
 	}
-	if consumed != len(tlv.Base.Value) {
+	if consumed != len(tlv.base.value) {
 		return errors.New("LspEntriesTlv.DecodeFromBytes: value length mismatch")
 	}
 	tlv.lspEntries = lspEntries
@@ -814,9 +814,9 @@ func (tlv *lspEntriesTlv) Serialize() ([]byte, error) {
 		binary.BigEndian.PutUint16(value[i+6+lidlen:i+8+lidlen], ltmp.Checksum)
 		i += 8 + LSP_ID_LENGTH
 	}
-	tlv.Base.Length = uint8(length)
-	tlv.Base.Value = value
-	data, err := tlv.Base.Serialize()
+	tlv.base.length = uint8(length)
+	tlv.base.value = value
+	data, err := tlv.base.Serialize()
 	if err != nil {
 		return data, err
 	}
@@ -825,7 +825,7 @@ func (tlv *lspEntriesTlv) Serialize() ([]byte, error) {
 
 /*
 	Authentication Information
-	Code - 10
+	code - 10
 	Length - Variable from 1-254 octets.
 	Value -
 	+------------------------+
@@ -836,25 +836,25 @@ func (tlv *lspEntriesTlv) Serialize() ([]byte, error) {
 */
 
 type authInfoTlv struct {
-	Base      tlvBase
+	base      tlvBase
 	AuthType  AuthType
 	authValue []byte
 }
 
 func NewAuthInfoTlv() (*authInfoTlv, error) {
 	tlv := authInfoTlv{
-		Base: tlvBase{
-			Code: TLV_CODE_AUTH_INFO,
+		base: tlvBase{
+			code: TLV_CODE_AUTH_INFO,
 		},
 	}
-	tlv.Base.Init()
+	tlv.base.init()
 	tlv.authValue = make([]byte, 0)
 	return &tlv, nil
 }
 
 func (tlv *authInfoTlv) String() string {
 	var b bytes.Buffer
-	b.WriteString(tlv.Base.String())
+	b.WriteString(tlv.base.String())
 	fmt.Fprintf(&b, "    AuthType            %s\n", tlv.AuthType)
 	fmt.Fprintf(&b, "    AuthValue           ")
 	for _, btmp := range tlv.authValue {
@@ -865,13 +865,13 @@ func (tlv *authInfoTlv) String() string {
 }
 
 func (tlv *authInfoTlv) DecodeFromBytes(data []byte) error {
-	err := tlv.Base.DecodeFromBytes(data)
+	err := tlv.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
 	}
-	tlv.AuthType = AuthType(tlv.Base.Value[0])
-	authValue := make([]byte, len(tlv.Base.Value[1:]))
-	copy(authValue, tlv.Base.Value[1:])
+	tlv.AuthType = AuthType(tlv.base.value[0])
+	authValue := make([]byte, len(tlv.base.value[1:]))
+	copy(authValue, tlv.base.value[1:])
 	tlv.authValue = authValue
 	return nil
 }
@@ -880,9 +880,9 @@ func (tlv *authInfoTlv) Serialize() ([]byte, error) {
 	value := make([]byte, 1+len(tlv.authValue))
 	value[0] = uint8(tlv.AuthType)
 	copy(value[1:], tlv.authValue)
-	tlv.Base.Length = uint8(len(value))
-	tlv.Base.Value = value
-	data, err := tlv.Base.Serialize()
+	tlv.base.length = uint8(len(value))
+	tlv.base.value = value
+	data, err := tlv.base.Serialize()
 	if err != nil {
 		return data, err
 	}
@@ -891,7 +891,7 @@ func (tlv *authInfoTlv) Serialize() ([]byte, error) {
 
 /*
 	originatingLSPBufferSize
-	Code - 14
+	code - 14
 	Length - 2
 	Value - 512 - 1492
 	+------------------------+
@@ -900,42 +900,42 @@ func (tlv *authInfoTlv) Serialize() ([]byte, error) {
 */
 
 type lspBuffSizeTlv struct {
-	Base          tlvBase
+	base          tlvBase
 	LspBufferSize uint16
 }
 
 func NewLspBuffSizeTlv() (*lspBuffSizeTlv, error) {
 	tlv := lspBuffSizeTlv{
-		Base: tlvBase{
-			Code: TLV_CODE_LSP_BUFF_SIZE,
+		base: tlvBase{
+			code: TLV_CODE_LSP_BUFF_SIZE,
 		},
 	}
-	tlv.Base.Init()
+	tlv.base.init()
 	return &tlv, nil
 }
 
 func (tlv *lspBuffSizeTlv) String() string {
 	var b bytes.Buffer
-	b.WriteString(tlv.Base.String())
+	b.WriteString(tlv.base.String())
 	fmt.Fprintf(&b, "    LspBufferSize       %d\n", tlv.LspBufferSize)
 	return b.String()
 }
 
 func (tlv *lspBuffSizeTlv) DecodeFromBytes(data []byte) error {
-	err := tlv.Base.DecodeFromBytes(data)
+	err := tlv.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
 	}
-	tlv.LspBufferSize = binary.BigEndian.Uint16(tlv.Base.Value[0:2])
+	tlv.LspBufferSize = binary.BigEndian.Uint16(tlv.base.value[0:2])
 	return nil
 }
 
 func (tlv *lspBuffSizeTlv) Serialize() ([]byte, error) {
 	value := make([]byte, 2)
 	binary.BigEndian.PutUint16(value[0:2], tlv.LspBufferSize)
-	tlv.Base.Length = uint8(len(value))
-	tlv.Base.Value = value
-	data, err := tlv.Base.Serialize()
+	tlv.base.length = uint8(len(value))
+	tlv.base.value = value
+	data, err := tlv.base.Serialize()
 	if err != nil {
 		return data, err
 	}
