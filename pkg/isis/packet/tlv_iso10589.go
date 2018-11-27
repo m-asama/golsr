@@ -79,7 +79,7 @@ func (tlv *areaAddressesTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
 	for _, areaAddress := range tlv.areaAddresses {
-		fmt.Fprintf(&b, "    AreaAddress         ")
+		fmt.Fprintf(&b, "    AreaAddress                 ")
 		for _, btmp := range areaAddress {
 			fmt.Fprintf(&b, "%02x", btmp)
 		}
@@ -248,19 +248,20 @@ func (tlv *isNeighboursLspTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
 	fmt.Fprintf(&b, "    Virtual Flag        %t\n", tlv.VirtualFlag)
-	for _, ntmp := range tlv.neighbours {
-		fmt.Fprintf(&b, "    DefaultMetric       %d\n", ntmp.DefaultMetric)
-		fmt.Fprintf(&b, "    DefaultMetricType   %s\n", ntmp.DefaultMetricType)
-		fmt.Fprintf(&b, "    DelayMetric         %d\n", ntmp.DelayMetric)
-		fmt.Fprintf(&b, "    DelayMetricSupported %t\n", ntmp.DelayMetricSupported)
-		fmt.Fprintf(&b, "    DelayMetricType     %s\n", ntmp.DelayMetricType)
-		fmt.Fprintf(&b, "    ExpenseMetric       %d\n", ntmp.ExpenseMetric)
-		fmt.Fprintf(&b, "    ExpenseMetricSupported %t\n", ntmp.ExpenseMetricSupported)
-		fmt.Fprintf(&b, "    ExpenseMetricType   %s\n", ntmp.ExpenseMetricType)
-		fmt.Fprintf(&b, "    ErrorMetric         %d\n", ntmp.ErrorMetric)
-		fmt.Fprintf(&b, "    ErrorMetricSupported %t\n", ntmp.ErrorMetricSupported)
-		fmt.Fprintf(&b, "    ErrorMetricType     %s\n", ntmp.ErrorMetricType)
-		fmt.Fprintf(&b, "    NeighbourId         ")
+	for i, ntmp := range tlv.neighbours {
+		fmt.Fprintf(&b, "    Neighbour[%d]\n", i)
+		fmt.Fprintf(&b, "        DefaultMetric           %d\n", ntmp.DefaultMetric)
+		fmt.Fprintf(&b, "        DefaultMetricType       %s\n", ntmp.DefaultMetricType)
+		fmt.Fprintf(&b, "        DelayMetric             %d\n", ntmp.DelayMetric)
+		fmt.Fprintf(&b, "        DelayMetricSupported    %t\n", ntmp.DelayMetricSupported)
+		fmt.Fprintf(&b, "        DelayMetricType         %s\n", ntmp.DelayMetricType)
+		fmt.Fprintf(&b, "        ExpenseMetric           %d\n", ntmp.ExpenseMetric)
+		fmt.Fprintf(&b, "        ExpenseMetricSupported  %t\n", ntmp.ExpenseMetricSupported)
+		fmt.Fprintf(&b, "        ExpenseMetricType       %s\n", ntmp.ExpenseMetricType)
+		fmt.Fprintf(&b, "        ErrorMetric             %d\n", ntmp.ErrorMetric)
+		fmt.Fprintf(&b, "        ErrorMetricSupported    %t\n", ntmp.ErrorMetricSupported)
+		fmt.Fprintf(&b, "        ErrorMetricType         %s\n", ntmp.ErrorMetricType)
+		fmt.Fprintf(&b, "        NeighbourId             ")
 		for _, btmp := range ntmp.neighbourId {
 			fmt.Fprintf(&b, "%02x", btmp)
 		}
@@ -414,7 +415,7 @@ func (tlv *partitionDesignatedL2IsTlv) SetDesignatedL2IsId(designatedL2IsId []by
 func (tlv *partitionDesignatedL2IsTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
-	fmt.Fprintf(&b, "    Designated L2 IS ID ")
+	fmt.Fprintf(&b, "    Designated L2 IS ID         ")
 	for _, btmp := range tlv.designatedL2IsId {
 		fmt.Fprintf(&b, "%02x", btmp)
 	}
@@ -544,7 +545,7 @@ func (tlv *isNeighboursHelloTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
 	for _, lanAddress := range tlv.lanAddresses {
-		fmt.Fprintf(&b, "    LanAddress          ")
+		fmt.Fprintf(&b, "    LanAddress                  ")
 		for _, btmp := range lanAddress {
 			fmt.Fprintf(&b, "%02x", btmp)
 		}
@@ -717,7 +718,7 @@ type lspEntriesTlv struct {
 func NewLspEntriesTlv() (*lspEntriesTlv, error) {
 	tlv := lspEntriesTlv{
 		base: tlvBase{
-			code: TLV_CODE_ESP_ENTRIES,
+			code: TLV_CODE_LSP_ENTRIES,
 		},
 	}
 	tlv.base.init()
@@ -761,15 +762,16 @@ func (tlv *lspEntriesTlv) RemoveLspEntry(lspId []byte) error {
 func (tlv *lspEntriesTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
-	for _, ltmp := range tlv.lspEntries {
-		fmt.Fprintf(&b, "    RemainingLifetime   %d\n", ltmp.RemainingLifetime)
-		fmt.Fprintf(&b, "    LspId               ")
+	for i, ltmp := range tlv.lspEntries {
+		fmt.Fprintf(&b, "    LspEntry[%d]\n", i)
+		fmt.Fprintf(&b, "        RemainingLifetime       %d\n", ltmp.RemainingLifetime)
+		fmt.Fprintf(&b, "        LspId                   ")
 		for _, btmp := range ltmp.lspId {
 			fmt.Fprintf(&b, "%02x", btmp)
 		}
 		fmt.Fprintf(&b, "\n")
-		fmt.Fprintf(&b, "    LspSeqNum           %08x\n", ltmp.LspSeqNum)
-		fmt.Fprintf(&b, "    Checksum            %04x\n", ltmp.Checksum)
+		fmt.Fprintf(&b, "        LspSeqNum               0x%08x\n", ltmp.LspSeqNum)
+		fmt.Fprintf(&b, "        Checksum                0x%04x\n", ltmp.Checksum)
 	}
 	return b.String()
 }
@@ -855,8 +857,8 @@ func NewAuthInfoTlv() (*authInfoTlv, error) {
 func (tlv *authInfoTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
-	fmt.Fprintf(&b, "    AuthType            %s\n", tlv.AuthType)
-	fmt.Fprintf(&b, "    AuthValue           ")
+	fmt.Fprintf(&b, "    AuthType                    %s\n", tlv.AuthType)
+	fmt.Fprintf(&b, "    AuthValue                   ")
 	for _, btmp := range tlv.authValue {
 		fmt.Fprintf(&b, "%02x", btmp)
 	}
@@ -917,7 +919,7 @@ func NewLspBuffSizeTlv() (*lspBuffSizeTlv, error) {
 func (tlv *lspBuffSizeTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
-	fmt.Fprintf(&b, "    LspBufferSize       %d\n", tlv.LspBufferSize)
+	fmt.Fprintf(&b, "    LspBufferSize               %d\n", tlv.LspBufferSize)
 	return b.String()
 }
 

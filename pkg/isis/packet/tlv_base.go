@@ -18,14 +18,14 @@ func (base *tlvBase) init() {
 
 func (base *tlvBase) String() string {
 	var b bytes.Buffer
-	fmt.Fprintf(&b, "    code                %s(%d)\n", base.code.String(), base.code)
-	fmt.Fprintf(&b, "    Length              %d\n", base.length)
-	fmt.Fprintf(&b, "    Value              ")
+	fmt.Fprintf(&b, "    code                        %s(%d)\n", base.code.String(), base.code)
+	fmt.Fprintf(&b, "    Length                      %d\n", base.length)
+	fmt.Fprintf(&b, "    Value                       ")
 	for i := 0; i < len(base.value); i++ {
 		if i > 0 && i%20 == 0 {
-			fmt.Fprintf(&b, "\n                       ")
+			fmt.Fprintf(&b, "\n                                ")
 		}
-		fmt.Fprintf(&b, " %02x", base.value[i])
+		fmt.Fprintf(&b, "%02x", base.value[i])
 	}
 	fmt.Fprintf(&b, "\n")
 	return b.String()
@@ -86,7 +86,7 @@ func DecodeTlvFromBytes(data []byte) (IsisTlv, error) {
 		*/
 	case TLV_CODE_PADDING:
 		tlv, err = NewPaddingTlv()
-	case TLV_CODE_ESP_ENTRIES:
+	case TLV_CODE_LSP_ENTRIES:
 		tlv, err = NewLspEntriesTlv()
 	case TLV_CODE_AUTH_INFO:
 		tlv, err = NewAuthInfoTlv()

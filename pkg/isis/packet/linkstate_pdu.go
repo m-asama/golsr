@@ -43,22 +43,23 @@ func NewLsPdu(pduType PduType) (*lsPdu, error) {
 
 func (ls *lsPdu) String() string {
 	var b bytes.Buffer
-	b.WriteString(ls.base.String())
-	fmt.Fprintf(&b, "RemainingLifetime       %d\n", ls.RemainingLifetime)
-	fmt.Fprintf(&b, "LspId                   ")
+	b.WriteString(ls.base.StringFixed())
+	fmt.Fprintf(&b, "RemainingLifetime               %d\n", ls.RemainingLifetime)
+	fmt.Fprintf(&b, "lspId                           ")
 	for t := range ls.lspId {
 		fmt.Fprintf(&b, "%02x", t)
 	}
 	fmt.Fprintf(&b, "\n")
-	fmt.Fprintf(&b, "SequenceNumber          %d\n", ls.SequenceNumber)
-	fmt.Fprintf(&b, "Checksum                %04x\n", ls.Checksum)
-	fmt.Fprintf(&b, "PartitionRepairFlag     %t\n", ls.PartitionRepairFlag)
-	fmt.Fprintf(&b, "AttachedDefaultMetric   %t\n", ls.AttachedDefaultMetric)
-	fmt.Fprintf(&b, "AttachedDealyMetric     %t\n", ls.AttachedDealyMetric)
-	fmt.Fprintf(&b, "AttachedExpenseMetric   %t\n", ls.AttachedExpenseMetric)
-	fmt.Fprintf(&b, "AttachedErrorMetric     %t\n", ls.AttachedErrorMetric)
-	fmt.Fprintf(&b, "LSPDBOverloadFlag       %t\n", ls.LSPDBOverloadFlag)
-	fmt.Fprintf(&b, "IsType                  %s\n", ls.IsType.String())
+	fmt.Fprintf(&b, "SequenceNumber                  %d\n", ls.SequenceNumber)
+	fmt.Fprintf(&b, "Checksum                        0x%04x\n", ls.Checksum)
+	fmt.Fprintf(&b, "PartitionRepairFlag             %t\n", ls.PartitionRepairFlag)
+	fmt.Fprintf(&b, "AttachedDefaultMetric           %t\n", ls.AttachedDefaultMetric)
+	fmt.Fprintf(&b, "AttachedDealyMetric             %t\n", ls.AttachedDealyMetric)
+	fmt.Fprintf(&b, "AttachedExpenseMetric           %t\n", ls.AttachedExpenseMetric)
+	fmt.Fprintf(&b, "AttachedErrorMetric             %t\n", ls.AttachedErrorMetric)
+	fmt.Fprintf(&b, "LSPDBOverloadFlag               %t\n", ls.LSPDBOverloadFlag)
+	fmt.Fprintf(&b, "IsType                          %s\n", ls.IsType.String())
+	b.WriteString(ls.base.StringTlv())
 	return b.String()
 }
 

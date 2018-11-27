@@ -17,15 +17,15 @@ type snPdu struct {
 func NewSnPdu(pduType PduType) (*snPdu, error) {
 	if pduType != PDU_TYPE_LEVEL1_CSNP &&
 		pduType != PDU_TYPE_LEVEL2_CSNP &&
-		pduType != PDF_TYPE_LEVEL1_PSNP &&
-		pduType != PDF_TYPE_LEVEL2_PSNP {
+		pduType != PDU_TYPE_LEVEL1_PSNP &&
+		pduType != PDU_TYPE_LEVEL2_PSNP {
 		return nil, errors.New("NewSnPdu: pduType invalid")
 	}
 	var lengthIndicator uint8
 	switch pduType {
 	case PDU_TYPE_LEVEL1_CSNP, PDU_TYPE_LEVEL2_CSNP:
 		lengthIndicator = 15 + SYSTEM_ID_LENGTH*3
-	case PDF_TYPE_LEVEL1_PSNP, PDF_TYPE_LEVEL2_PSNP:
+	case PDU_TYPE_LEVEL1_PSNP, PDU_TYPE_LEVEL2_PSNP:
 		lengthIndicator = 11 + SYSTEM_ID_LENGTH
 	}
 	sn := snPdu{
@@ -43,25 +43,26 @@ func NewSnPdu(pduType PduType) (*snPdu, error) {
 
 func (sn *snPdu) String() string {
 	var b bytes.Buffer
-	b.WriteString(sn.base.String())
-	fmt.Fprintf(&b, "SourceId                ")
+	b.WriteString(sn.base.StringFixed())
+	fmt.Fprintf(&b, "sourceId                        ")
 	for t := range sn.sourceId {
 		fmt.Fprintf(&b, "%02x", t)
 	}
 	fmt.Fprintf(&b, "\n")
 	if sn.base.pduType == PDU_TYPE_LEVEL1_CSNP ||
 		sn.base.pduType == PDU_TYPE_LEVEL2_CSNP {
-		fmt.Fprintf(&b, "StartLspId              ")
+		fmt.Fprintf(&b, "startLspId                      ")
 		for t := range sn.startLspId {
 			fmt.Fprintf(&b, "%02x", t)
 		}
 		fmt.Fprintf(&b, "\n")
-		fmt.Fprintf(&b, "EndLspId                ")
+		fmt.Fprintf(&b, "endLspId                        ")
 		for t := range sn.endLspId {
 			fmt.Fprintf(&b, "%02x", t)
 		}
 		fmt.Fprintf(&b, "\n")
 	}
+	b.WriteString(sn.base.StringTlv())
 	return b.String()
 }
 

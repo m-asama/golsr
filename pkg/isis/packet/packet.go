@@ -33,8 +33,8 @@ const (
 	PDU_TYPE_LEVEL2_LSP              = 0x14
 	PDU_TYPE_LEVEL1_CSNP             = 0x18
 	PDU_TYPE_LEVEL2_CSNP             = 0x19
-	PDF_TYPE_LEVEL1_PSNP             = 0x1a
-	PDF_TYPE_LEVEL2_PSNP             = 0x1b
+	PDU_TYPE_LEVEL1_PSNP             = 0x1a
+	PDU_TYPE_LEVEL2_PSNP             = 0x1b
 )
 
 func (pduType PduType) String() string {
@@ -53,10 +53,10 @@ func (pduType PduType) String() string {
 		return "PDU_TYPE_LEVEL1_CSNP"
 	case PDU_TYPE_LEVEL2_CSNP:
 		return "PDU_TYPE_LEVEL2_CSNP"
-	case PDF_TYPE_LEVEL1_PSNP:
-		return "PDF_TYPE_LEVEL1_PSNP"
-	case PDF_TYPE_LEVEL2_PSNP:
-		return "PDF_TYPE_LEVEL2_PSNP"
+	case PDU_TYPE_LEVEL1_PSNP:
+		return "PDU_TYPE_LEVEL1_PSNP"
+	case PDU_TYPE_LEVEL2_PSNP:
+		return "PDU_TYPE_LEVEL2_PSNP"
 	}
 	return fmt.Sprintf("PduType(%d)", pduType)
 }
@@ -212,7 +212,7 @@ const (
 	TLV_CODE_IS_NEIGHBOURS_HELLO        = 0x06
 	TLV_CODE_IS_NEIGHBOURS_VARIABLE     = 0x07
 	TLV_CODE_PADDING                    = 0x08
-	TLV_CODE_ESP_ENTRIES                = 0x09
+	TLV_CODE_LSP_ENTRIES                = 0x09
 	TLV_CODE_AUTH_INFO                  = 0x0a
 	TLV_CODE_LSP_BUFF_SIZE              = 0x0e
 	// RFC1195
@@ -253,8 +253,8 @@ func (tlvCode TlvCode) String() string {
 		return "TLV_CODE_IS_NEIGHBOURS_VARIABLE"
 	case TLV_CODE_PADDING:
 		return "TLV_CODE_PADDING"
-	case TLV_CODE_ESP_ENTRIES:
-		return "TLV_CODE_ESP_ENTRIES"
+	case TLV_CODE_LSP_ENTRIES:
+		return "TLV_CODE_LSP_ENTRIES"
 	case TLV_CODE_AUTH_INFO:
 		return "TLV_CODE_AUTH_INFO"
 	case TLV_CODE_LSP_BUFF_SIZE:
@@ -287,4 +287,70 @@ func (tlvCode TlvCode) String() string {
 		return "TLV_CODE_IPV6_INTERFACE_ADDRESS"
 	}
 	return fmt.Sprintf("TlvCode(%d)", tlvCode)
+}
+
+func NewTlv(tlvCode TlvCode) (IsisTlv, error) {
+	var tlv IsisTlv
+	var err error
+	switch tlvCode {
+	case TLV_CODE_AREA_ADDRESSES:
+		tlv, err = NewAreaAddressesTlv()
+	case TLV_CODE_IS_NEIGHBOURS_LSP:
+		tlv, err = NewIsNeighboursLspTlv()
+	/*
+	   case TLV_CODE_ES_NEIGHBOURS:
+	           tlv, err = NewEsNeighboursTlv()
+	*/
+	case TLV_CODE_PARTITION_DESIGNATED_L2_IS:
+		tlv, err = NewPartitionDesignatedL2IsTlv()
+	/*
+	   case TLV_CODE_PREFIX_NEIGHBOURS:
+	           tlv, err = NewPrefixNeighboursTlv()
+	*/
+	case TLV_CODE_IS_NEIGHBOURS_HELLO:
+		tlv, err = NewIsNeighboursHelloTlv()
+	/*
+	   case TLV_CODE_IS_NEIGHBOURS_VARIABLE:
+	           tlv, err = NewIsNeighboursVariableTlv()
+	*/
+	case TLV_CODE_PADDING:
+		tlv, err = NewPaddingTlv()
+	case TLV_CODE_LSP_ENTRIES:
+		tlv, err = NewLspEntriesTlv()
+	case TLV_CODE_AUTH_INFO:
+		tlv, err = NewAuthInfoTlv()
+	case TLV_CODE_LSP_BUFF_SIZE:
+		tlv, err = NewLspBuffSizeTlv()
+	case TLV_CODE_IP_INTERNAL_REACH_INFO:
+		tlv, err = NewIpInternalReachInfoTlv()
+	case TLV_CODE_PROTOCOLS_SUPPORTED:
+		tlv, err = NewProtocolsSupportedTlv()
+	case TLV_CODE_IP_EXTERNAL_REACH_INFO:
+		tlv, err = NewIpExternalReachInfoTlv()
+	case TLV_CODE_INTER_DOMAIN_ROUTING_PROTO_INFO:
+		tlv, err = NewInterDomainRoutingProtoInfoTlv()
+	case TLV_CODE_IP_INTERFACE_ADDRESS:
+		tlv, err = NewIpInterfaceAddressTlv()
+	/*
+	   case TLV_CODE_AUTHENTICATION_INFO:
+	           tlv, err = NewAuthenticationInfoTlv()
+	*/
+	case TLV_CODE_DYNAMIC_HOSTNAME:
+		tlv, err = NewDynamicHostnameTlv()
+	case TLV_CODE_P2P_3WAY_ADJ:
+		tlv, err = NewP2p3wayAdjacencyTlv()
+	case TLV_CODE_EXTENDED_IS_REACHABILITY:
+		tlv, err = NewExtendedIsReachabilityTlv()
+	case TLV_CODE_TRAFFIC_ENGINEERING_ROUTER_ID:
+		tlv, err = NewTrafficEngineeringRouterIdTlv()
+	case TLV_CODE_EXTENDED_IP_REACHABILITY:
+		tlv, err = NewExtendedIpReachabilityTlv()
+	case TLV_CODE_IPV6_REACHABILITY:
+		tlv, err = NewIpv6ReachabilityTlv()
+	case TLV_CODE_IPV6_INTERFACE_ADDRESS:
+		tlv, err = NewIpv6InterfaceAddressTlv()
+	default:
+		tlv, err = NewUnknownTlv(tlvCode)
+	}
+	return tlv, err
 }

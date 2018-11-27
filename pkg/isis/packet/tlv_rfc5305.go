@@ -278,39 +278,40 @@ func (tlv *extendedIsReachabilityTlv) RemoveNeighbour(neighbourId []byte) error 
 func (tlv *extendedIsReachabilityTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
-	for _, ntmp := range tlv.neighbours {
-		fmt.Fprintf(&b, "    NeighbourId         ")
+	for i, ntmp := range tlv.neighbours {
+		fmt.Fprintf(&b, "    Neighbour[%d]\n", i)
+		fmt.Fprintf(&b, "        NeighbourId             ")
 		for _, btmp := range ntmp.neighbourId {
 			fmt.Fprintf(&b, "%02x", btmp)
 		}
 		fmt.Fprintf(&b, "\n")
-		fmt.Fprintf(&b, "    DefaultMetric       %d\n", ntmp.DefaultMetric)
-		fmt.Fprintf(&b, "    LengthOfSubtlvs     %d\n", ntmp.LengthOfSubtlvs)
+		fmt.Fprintf(&b, "        DefaultMetric           %d\n", ntmp.DefaultMetric)
+		fmt.Fprintf(&b, "        LengthOfSubtlvs         %d\n", ntmp.LengthOfSubtlvs)
 		if ntmp.adminGroupSubTlv != nil {
-			fmt.Fprintf(&b, "    AdminGroupSubTlv    %d\n", *ntmp.adminGroupSubTlv)
+			fmt.Fprintf(&b, "        AdminGroupSubTlv        %d\n", *ntmp.adminGroupSubTlv)
 		}
 		for _, iatmp := range ntmp.ipv4InterfaceAddressSubtlvs {
-			fmt.Fprintf(&b, "    ipv4InterfaceAddressSubtlvs %d\n", iatmp)
+			fmt.Fprintf(&b, "        ipv4InterfaceAddressSubtlvs %d\n", iatmp)
 		}
 		for _, natmp := range ntmp.ipv4NeighbourAddressSubtlvs {
-			fmt.Fprintf(&b, "    ipv4NeighbourAddressSubtlvs %d\n", natmp)
+			fmt.Fprintf(&b, "        ipv4NeighbourAddressSubtlvs %d\n", natmp)
 		}
 		if ntmp.maximumLinkBandwidthSubTlv != nil {
-			fmt.Fprintf(&b, "    maxLBSubTlv         %f\n", *ntmp.maximumLinkBandwidthSubTlv)
+			fmt.Fprintf(&b, "        maxLBSubTlv             %f\n", *ntmp.maximumLinkBandwidthSubTlv)
 		}
 		if ntmp.maximumReservableLinkBandwidthSubTlv != nil {
-			fmt.Fprintf(&b, "    maxRLBSubTlv        %f\n", *ntmp.maximumReservableLinkBandwidthSubTlv)
+			fmt.Fprintf(&b, "        maxRLBSubTlv            %f\n", *ntmp.maximumReservableLinkBandwidthSubTlv)
 		}
 		if ntmp.unreservedBandwidthSubTlv != nil {
-			for i := 0; i < 8; i++ {
-				fmt.Fprintf(&b, "    unreservedBSubTlv   %f\n", ntmp.unreservedBandwidthSubTlv[i])
+			for j := 0; j < 8; j++ {
+				fmt.Fprintf(&b, "        unreservedBSubTlv       %f\n", ntmp.unreservedBandwidthSubTlv[j])
 			}
 		}
 		if ntmp.trafficEngineeringDefaultMetric != nil {
-			fmt.Fprintf(&b, "    TEDefaultMetric     %d\n", *ntmp.trafficEngineeringDefaultMetric)
+			fmt.Fprintf(&b, "        TEDefaultMetric         %d\n", *ntmp.trafficEngineeringDefaultMetric)
 		}
 		for _, untlv := range ntmp.unknownSubtlvs {
-			fmt.Fprintf(&b, "    unknownSubtlvs      ")
+			fmt.Fprintf(&b, "        unknownSubtlvs          ")
 			for _, btmp := range untlv {
 				fmt.Fprintf(&b, "%08x", btmp)
 			}
@@ -541,7 +542,7 @@ func NewTrafficEngineeringRouterIdTlv() (*trafficEngineeringRouterIdTlv, error) 
 func (tlv *trafficEngineeringRouterIdTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
-	fmt.Fprintf(&b, "    Router ID           %08x\n", tlv.RouterId)
+	fmt.Fprintf(&b, "    Router ID                   0x%08x\n", tlv.RouterId)
 	return b.String()
 }
 
@@ -678,14 +679,15 @@ func (tlv *extendedIpReachabilityTlv) RemoveIpv4Prefix(ipv4Prefix uint32, prefix
 func (tlv *extendedIpReachabilityTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
-	for _, ptmp := range tlv.ipv4Prefixes {
-		fmt.Fprintf(&b, "    ipv4Prefix          %08x\n", ptmp.ipv4Prefix)
-		fmt.Fprintf(&b, "    prefixLength        %d\n", ptmp.prefixLength)
-		fmt.Fprintf(&b, "    MetricInformation   %08x\n", ptmp.MetricInformation)
-		fmt.Fprintf(&b, "    UpDownBit           %t\n", ptmp.UpDownBit)
-		fmt.Fprintf(&b, "    SubtlvsPresence     %t\n", ptmp.SubtlvsPresence)
+	for i, ptmp := range tlv.ipv4Prefixes {
+		fmt.Fprintf(&b, "    Ipv4Prefix[%d]\n", i)
+		fmt.Fprintf(&b, "        ipv4Prefix              0x%08x\n", ptmp.ipv4Prefix)
+		fmt.Fprintf(&b, "        prefixLength            %d\n", ptmp.prefixLength)
+		fmt.Fprintf(&b, "        MetricInformation       0x%08x\n", ptmp.MetricInformation)
+		fmt.Fprintf(&b, "        UpDownBit               %t\n", ptmp.UpDownBit)
+		fmt.Fprintf(&b, "        SubtlvsPresence         %t\n", ptmp.SubtlvsPresence)
 		for _, tlvtmp := range ptmp.unknownSubtlvs {
-			fmt.Fprintf(&b, "    unknownSubTlv       ")
+			fmt.Fprintf(&b, "        unknownSubTlv           ")
 			for _, btmp := range tlvtmp {
 				fmt.Fprintf(&b, "%02x", btmp)
 			}

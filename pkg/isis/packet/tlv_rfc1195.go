@@ -109,17 +109,18 @@ func (tlv *ipInternalReachInfoTlv) RemoveIpSubnet(ipAddress, subnetMask uint32) 
 func (tlv *ipInternalReachInfoTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
-	for _, istmp := range tlv.ipSubnets {
-		fmt.Fprintf(&b, "    DefaultMetric       %d\n", istmp.DefaultMetric)
-		fmt.Fprintf(&b, "    DefaultMetricType   %s\n", istmp.DefaultMetricType)
-		fmt.Fprintf(&b, "    DelayMetric         %d\n", istmp.DelayMetric)
-		fmt.Fprintf(&b, "    DelayMetricSupported %t\n", istmp.DelayMetricSupported)
-		fmt.Fprintf(&b, "    ExpenseMetric       %d\n", istmp.ExpenseMetric)
-		fmt.Fprintf(&b, "    ExpenseMetricSupported %t\n", istmp.ExpenseMetricSupported)
-		fmt.Fprintf(&b, "    ErrorMetric         %d\n", istmp.ErrorMetric)
-		fmt.Fprintf(&b, "    ErrorMetricSupported %t\n", istmp.ErrorMetricSupported)
-		fmt.Fprintf(&b, "    IP Address          %08x", istmp.IpAddress)
-		fmt.Fprintf(&b, "    Subnet Mask         %08x", istmp.SubnetMask)
+	for i, istmp := range tlv.ipSubnets {
+		fmt.Fprintf(&b, "    IpSubnet[%d]\n", i)
+		fmt.Fprintf(&b, "        DefaultMetric           %d\n", istmp.DefaultMetric)
+		fmt.Fprintf(&b, "        DefaultMetricType       %s\n", istmp.DefaultMetricType)
+		fmt.Fprintf(&b, "        DelayMetric             %d\n", istmp.DelayMetric)
+		fmt.Fprintf(&b, "        DelayMetricSupported    %t\n", istmp.DelayMetricSupported)
+		fmt.Fprintf(&b, "        ExpenseMetric           %d\n", istmp.ExpenseMetric)
+		fmt.Fprintf(&b, "        ExpenseMetricSupported  %t\n", istmp.ExpenseMetricSupported)
+		fmt.Fprintf(&b, "        ErrorMetric             %d\n", istmp.ErrorMetric)
+		fmt.Fprintf(&b, "        ErrorMetricSupported    %t\n", istmp.ErrorMetricSupported)
+		fmt.Fprintf(&b, "        IP Address              0x%08x", istmp.IpAddress)
+		fmt.Fprintf(&b, "        Subnet Mask             0x%08x", istmp.SubnetMask)
 	}
 	return b.String()
 }
@@ -249,7 +250,7 @@ func (tlv *protocolsSupportedTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
 	for _, nitmp := range tlv.nlpIds {
-		fmt.Fprintf(&b, "    NLP ID              %s\n", nitmp)
+		fmt.Fprintf(&b, "    NLP ID                      %s\n", nitmp)
 	}
 	return b.String()
 }
@@ -392,17 +393,18 @@ func (tlv *ipExternalReachInfoTlv) RemoveIpSubnet(ipAddress, subnetMask uint32) 
 func (tlv *ipExternalReachInfoTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
-	for _, istmp := range tlv.ipSubnets {
-		fmt.Fprintf(&b, "    DefaultMetric       %d\n", istmp.DefaultMetric)
-		fmt.Fprintf(&b, "    DefaultMetricType   %s\n", istmp.DefaultMetricType)
-		fmt.Fprintf(&b, "    DelayMetric         %d\n", istmp.DelayMetric)
-		fmt.Fprintf(&b, "    DelayMetricSupported %t\n", istmp.DelayMetricSupported)
-		fmt.Fprintf(&b, "    ExpenseMetric       %d\n", istmp.ExpenseMetric)
-		fmt.Fprintf(&b, "    ExpenseMetricSupported %t\n", istmp.ExpenseMetricSupported)
-		fmt.Fprintf(&b, "    ErrorMetric         %d\n", istmp.ErrorMetric)
-		fmt.Fprintf(&b, "    ErrorMetricSupported %t\n", istmp.ErrorMetricSupported)
-		fmt.Fprintf(&b, "    IP Address          %08x", istmp.IpAddress)
-		fmt.Fprintf(&b, "    Subnet Mask         %08x", istmp.SubnetMask)
+	for i, istmp := range tlv.ipSubnets {
+		fmt.Fprintf(&b, "    IpSubnet[%d]\n", i)
+		fmt.Fprintf(&b, "        DefaultMetric           %d\n", istmp.DefaultMetric)
+		fmt.Fprintf(&b, "        DefaultMetricType       %s\n", istmp.DefaultMetricType)
+		fmt.Fprintf(&b, "        DelayMetric             %d\n", istmp.DelayMetric)
+		fmt.Fprintf(&b, "        DelayMetricSupported    %t\n", istmp.DelayMetricSupported)
+		fmt.Fprintf(&b, "        ExpenseMetric           %d\n", istmp.ExpenseMetric)
+		fmt.Fprintf(&b, "        ExpenseMetricSupported  %t\n", istmp.ExpenseMetricSupported)
+		fmt.Fprintf(&b, "        ErrorMetric             %d\n", istmp.ErrorMetric)
+		fmt.Fprintf(&b, "        ErrorMetricSupported    %t\n", istmp.ErrorMetricSupported)
+		fmt.Fprintf(&b, "        IP Address              0x%08x", istmp.IpAddress)
+		fmt.Fprintf(&b, "        Subnet Mask             0x%08x", istmp.SubnetMask)
 	}
 	return b.String()
 }
@@ -510,8 +512,8 @@ func (tlv *interDomainRoutingProtoInfoTlv) SetExternalInfo(externalInfo []byte) 
 func (tlv *interDomainRoutingProtoInfoTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
-	fmt.Fprintf(&b, "    InterDomainInfoType %s\n", tlv.InterDomainInfoType)
-	fmt.Fprintf(&b, "    ExternalInfo        ")
+	fmt.Fprintf(&b, "    InterDomainInfoType         %s\n", tlv.InterDomainInfoType)
+	fmt.Fprintf(&b, "    ExternalInfo                ")
 	for _, btmp := range tlv.ExternalInfo {
 		fmt.Fprintf(&b, "%02x", btmp)
 	}
@@ -609,7 +611,7 @@ func (tlv *ipInterfaceAddressTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
 	for _, iatmp := range tlv.IpAddresses {
-		fmt.Fprintf(&b, "    IPAddress           %08x\n", iatmp)
+		fmt.Fprintf(&b, "    IPAddress                   0x%08x\n", iatmp)
 	}
 	return b.String()
 }

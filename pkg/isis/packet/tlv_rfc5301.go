@@ -42,7 +42,7 @@ func (tlv *dynamicHostnameTlv) SetDynamicHostname(dynamicHostname []byte) error 
 func (tlv *dynamicHostnameTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
-	fmt.Fprintf(&b, "    DynamicHostname     ")
+	fmt.Fprintf(&b, "    DynamicHostname             ")
 	for _, btmp := range tlv.dynamicHostname {
 		fmt.Fprintf(&b, "%02x", btmp)
 	}

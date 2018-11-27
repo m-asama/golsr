@@ -127,20 +127,21 @@ func (tlv *ipv6ReachabilityTlv) RemoveIpv6Prefix(ipv6Prefix [4]uint32, prefixLen
 func (tlv *ipv6ReachabilityTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
-	for _, ptmp := range tlv.ipv6Prefixes {
-		fmt.Fprintf(&b, "    ipv6Prefix          ")
+	for i, ptmp := range tlv.ipv6Prefixes {
+		fmt.Fprintf(&b, "    Ipv6Prefix[%d]\n", i)
+		fmt.Fprintf(&b, "        ipv6Prefix              ")
 		fmt.Fprintf(&b, "%08x", ptmp.ipv6Prefix[0])
 		fmt.Fprintf(&b, "%08x", ptmp.ipv6Prefix[1])
 		fmt.Fprintf(&b, "%08x", ptmp.ipv6Prefix[2])
 		fmt.Fprintf(&b, "%08x", ptmp.ipv6Prefix[3])
 		fmt.Fprintf(&b, "\n")
-		fmt.Fprintf(&b, "    prefixLength        %d\n", ptmp.prefixLength)
-		fmt.Fprintf(&b, "    Metric              %08x\n", ptmp.Metric)
-		fmt.Fprintf(&b, "    UpDownBit           %t\n", ptmp.UpDownBit)
-		fmt.Fprintf(&b, "    ExternalOriginalBit %t\n", ptmp.ExternalOriginalBit)
-		fmt.Fprintf(&b, "    SubtlvsPresence     %t\n", ptmp.SubtlvsPresence)
+		fmt.Fprintf(&b, "        prefixLength            %d\n", ptmp.prefixLength)
+		fmt.Fprintf(&b, "        Metric                  0x%08x\n", ptmp.Metric)
+		fmt.Fprintf(&b, "        UpDownBit               %t\n", ptmp.UpDownBit)
+		fmt.Fprintf(&b, "        ExternalOriginalBit     %t\n", ptmp.ExternalOriginalBit)
+		fmt.Fprintf(&b, "        SubtlvsPresence         %t\n", ptmp.SubtlvsPresence)
 		for _, tlvtmp := range ptmp.unknownSubtlvs {
-			fmt.Fprintf(&b, "    unknownSubTlv       ")
+			fmt.Fprintf(&b, "        unknownSubTlv           ")
 			for _, btmp := range tlvtmp {
 				fmt.Fprintf(&b, "%02x", btmp)
 			}
@@ -319,7 +320,7 @@ func (tlv *ipv6InterfaceAddressTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
 	for _, iatmp := range tlv.ipv6Addresses {
-		fmt.Fprintf(&b, "    IPv6Address         ")
+		fmt.Fprintf(&b, "    IPv6Address                 ")
 		fmt.Fprintf(&b, "%08x", iatmp[0])
 		fmt.Fprintf(&b, "%08x", iatmp[1])
 		fmt.Fprintf(&b, "%08x", iatmp[2])

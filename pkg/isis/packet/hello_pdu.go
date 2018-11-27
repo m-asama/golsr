@@ -45,26 +45,27 @@ func NewIihPdu(pduType PduType) (*iihPdu, error) {
 
 func (iih *iihPdu) String() string {
 	var b bytes.Buffer
-	b.WriteString(iih.base.String())
-	fmt.Fprintf(&b, "CircuitType             %s\n", iih.CircuitType.String())
-	fmt.Fprintf(&b, "SourceId                ")
+	b.WriteString(iih.base.StringFixed())
+	fmt.Fprintf(&b, "CircuitType                     %s\n", iih.CircuitType.String())
+	fmt.Fprintf(&b, "sourceId                        ")
 	for t := range iih.sourceId {
 		fmt.Fprintf(&b, "%02x", t)
 	}
 	fmt.Fprintf(&b, "\n")
-	fmt.Fprintf(&b, "HoldingTime             %d\n", iih.HoldingTime)
+	fmt.Fprintf(&b, "HoldingTime                     %d\n", iih.HoldingTime)
 	if iih.base.pduType == PDU_TYPE_LEVEL1_LAN_IIHP ||
 		iih.base.pduType == PDU_TYPE_LEVEL2_LAN_IIHP {
-		fmt.Fprintf(&b, "Priority                %d\n", iih.Priority)
-		fmt.Fprintf(&b, "LanId                   ")
+		fmt.Fprintf(&b, "Priority                        %d\n", iih.Priority)
+		fmt.Fprintf(&b, "lanId                           ")
 		for t := range iih.lanId {
 			fmt.Fprintf(&b, "%02x", t)
 		}
 		fmt.Fprintf(&b, "\n")
 	}
 	if iih.base.pduType == PDU_TYPE_P2P_IIHP {
-		fmt.Fprintf(&b, "LocalCircuitId          %02x\n", iih.LocalCircuitId)
+		fmt.Fprintf(&b, "LocalCircuitId                  0x%02x\n", iih.LocalCircuitId)
 	}
+	b.WriteString(iih.base.StringTlv())
 	return b.String()
 }
 

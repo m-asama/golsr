@@ -30,21 +30,31 @@ func (base *pduBase) init() {
 	base.verProtoIdExtension = 0x01
 	base.idLength = SYSTEM_ID_LENGTH
 	base.version = 0x01
+	base.maximumAreaAddress = 0x03
 
 	base.tlvs = make([]IsisTlv, 0)
 }
 
-func (base *pduBase) String() string {
+func (base *pduBase) StringFixed() string {
 	var b bytes.Buffer
-	fmt.Fprintf(&b, "irpDiscriminator        %02x\n", base.irpDiscriminator)
-	fmt.Fprintf(&b, "lengthIndicator         %02x\n", base.lengthIndicator)
-	fmt.Fprintf(&b, "verProtoIdExtension     %02x\n", base.verProtoIdExtension)
-	fmt.Fprintf(&b, "idLength                %d\n", base.idLength)
-	fmt.Fprintf(&b, "pduType                 %s(%d)\n", base.pduType.String(), base.pduType)
-	fmt.Fprintf(&b, "version                 %02x\n", base.version)
-	fmt.Fprintf(&b, "reserved                %02x\n", base.reserved)
-	fmt.Fprintf(&b, "maximumAreaAddress      %d\n", base.maximumAreaAddress)
-	fmt.Fprintf(&b, "pduLength               %d\n", base.pduLength)
+	fmt.Fprintf(&b, "irpDiscriminator                0x%02x\n", base.irpDiscriminator)
+	fmt.Fprintf(&b, "lengthIndicator                 0x%02x\n", base.lengthIndicator)
+	fmt.Fprintf(&b, "verProtoIdExtension             0x%02x\n", base.verProtoIdExtension)
+	fmt.Fprintf(&b, "idLength                        %d\n", base.idLength)
+	fmt.Fprintf(&b, "pduType                         %s(%d)\n", base.pduType.String(), base.pduType)
+	fmt.Fprintf(&b, "version                         0x%02x\n", base.version)
+	fmt.Fprintf(&b, "reserved                        0x%02x\n", base.reserved)
+	fmt.Fprintf(&b, "maximumAreaAddress              %d\n", base.maximumAreaAddress)
+	fmt.Fprintf(&b, "pduLength                       %d\n", base.pduLength)
+	return b.String()
+}
+
+func (base *pduBase) StringTlv() string {
+	var b bytes.Buffer
+	for i, tlv := range base.tlvs {
+		fmt.Fprintf(&b, "TLV[%d]\n", i)
+		fmt.Fprintf(&b, tlv.String())
+	}
 	return b.String()
 }
 
@@ -86,6 +96,32 @@ func (base *pduBase) DecodeFromBytes(data []byte) error {
 	if len(data) != int(base.pduLength) {
 		return errors.New("pduBase.DecodeFromBytes: data length mismatch")
 	}
+
+	// TLV
+	if len(data) >= int(base.lengthIndicator) {
+		i := int(base.lengthIndicator)
+		for i < int(base.pduLength) {
+			if int(base.pduLength) < i+2 {
+				return errors.New("pduBase.DecodeFromBytes: data length short")
+			}
+			t := TlvCode(data[i+0])
+			l := int(data[i+1])
+			tlv, err := NewTlv(t)
+			if err != nil {
+				return err
+			}
+			if int(base.pduLength) < i+2+l {
+				return errors.New("pduBase.DecodeFromBytes: data length short")
+			}
+			err = tlv.DecodeFromBytes(data[i : i+2+l])
+			if err != nil {
+				return err
+			}
+			base.tlvs = append(base.tlvs, tlv)
+			i += 2 + l
+		}
+	}
+
 	return nil
 }
 
@@ -151,12 +187,12 @@ func DecodePduFromBytes(data []byte) (IsisPdu, error) {
 		pdu, err = NewIihPdu(pduType)
 	case PDU_TYPE_LEVEL1_LSP, PDU_TYPE_LEVEL2_LSP:
 		pdu, err = NewLsPdu(pduType)
-	case PDU_TYPE_LEVEL1_CSNP, PDU_TYPE_LEVEL2_CSNP, PDF_TYPE_LEVEL1_PSNP, PDF_TYPE_LEVEL2_PSNP:
+	case PDU_TYPE_LEVEL1_CSNP, PDU_TYPE_LEVEL2_CSNP, PDU_TYPE_LEVEL1_PSNP, PDU_TYPE_LEVEL2_PSNP:
 		pdu, err = NewSnPdu(pduType)
 	}
 	if err != nil {
 		return nil, err
 	}
-	pdu.DecodeFromBytes(data)
-	return pdu, nil
+	err = pdu.DecodeFromBytes(data)
+	return pdu, err
 }
