@@ -119,6 +119,10 @@ func NewUnknownTlv(code TlvCode) (*unknownTlv, error) {
 	return &tlv, nil
 }
 
+func (tlv *unknownTlv) TlvCode() TlvCode {
+	return tlv.base.code
+}
+
 func (tlv *unknownTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())

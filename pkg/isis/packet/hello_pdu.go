@@ -43,6 +43,10 @@ func NewIihPdu(pduType PduType) (*iihPdu, error) {
 	return &iih, nil
 }
 
+func (iih *iihPdu) PduType() PduType {
+	return iih.base.pduType
+}
+
 func (iih *iihPdu) String() string {
 	var b bytes.Buffer
 	b.WriteString(iih.base.StringFixed())
@@ -135,4 +139,130 @@ func (iih *iihPdu) Serialize() ([]byte, error) {
 		return nil, errors.New("iihPdu.Serialize: pduType invalid")
 	}
 	return data, nil
+}
+
+func (iih *iihPdu) SetAreaAddressesTlv(tlv *areaAddressesTlv) error {
+	return iih.base.SetTlv(tlv)
+}
+
+func (iih *iihPdu) AreaAddressesTlv() (*areaAddressesTlv, error) {
+	tlvtmp, err := iih.base.Tlv(TLV_CODE_AREA_ADDRESSES)
+	if tlv, ok := tlvtmp.(*areaAddressesTlv); ok {
+		return tlv, err
+	}
+	return nil, err
+}
+
+func (iih *iihPdu) ClearAreaAddressesTlvs() error {
+	return iih.base.ClearTlvs(TLV_CODE_AREA_ADDRESSES)
+}
+
+func (iih *iihPdu) AddIsNeighboursHelloTlv(tlv *isNeighboursHelloTlv) error {
+	return iih.base.AddTlv(tlv)
+}
+
+func (iih *iihPdu) IsNeighboursHelloTlvs() ([]*isNeighboursHelloTlv, error) {
+	tlvs := make([]*isNeighboursHelloTlv, 0)
+	tlvstmp, err := iih.base.Tlvs(TLV_CODE_IS_NEIGHBOURS_HELLO)
+	if err != nil {
+		return nil, err
+	}
+	for _, tlvtmp := range tlvstmp {
+		if tlv, ok := tlvtmp.(*isNeighboursHelloTlv); ok {
+			tlvs = append(tlvs, tlv)
+		}
+	}
+	return tlvs, nil
+}
+
+func (iih *iihPdu) ClearIsNeighboursHelloTlvs() error {
+	return iih.base.ClearTlvs(TLV_CODE_IS_NEIGHBOURS_HELLO)
+}
+
+func (iih *iihPdu) AddPaddingTlv(tlv *paddingTlv) error {
+	return iih.base.AddTlv(tlv)
+}
+
+func (iih *iihPdu) ClearAddPaddingTlvs() error {
+	return iih.base.ClearTlvs(TLV_CODE_PADDING)
+}
+
+func (iih *iihPdu) SetAuthInfoTlv(tlv *authInfoTlv) error {
+	return iih.base.SetTlv(tlv)
+}
+
+func (iih *iihPdu) AuthInfoTlv() (*authInfoTlv, error) {
+	tlvtmp, err := iih.base.Tlv(TLV_CODE_AUTH_INFO)
+	if tlv, ok := tlvtmp.(*authInfoTlv); ok {
+		return tlv, err
+	}
+	return nil, err
+}
+
+func (iih *iihPdu) ClearAuthInfoTlvs() error {
+	return iih.base.ClearTlvs(TLV_CODE_AUTH_INFO)
+}
+
+func (iih *iihPdu) SetProtocolsSupportedTlv(tlv *protocolsSupportedTlv) error {
+	return iih.base.SetTlv(tlv)
+}
+
+func (iih *iihPdu) ProtocolsSupportedTlv() (*protocolsSupportedTlv, error) {
+	tlvtmp, err := iih.base.Tlv(TLV_CODE_PROTOCOLS_SUPPORTED)
+	if tlv, ok := tlvtmp.(*protocolsSupportedTlv); ok {
+		return tlv, err
+	}
+	return nil, err
+}
+
+func (iih *iihPdu) ClearProtocolsSupportedTlvs() error {
+	return iih.base.ClearTlvs(TLV_CODE_PROTOCOLS_SUPPORTED)
+}
+
+func (iih *iihPdu) SetIpInterfaceAddressTlv(tlv *ipInterfaceAddressTlv) error {
+	return iih.base.SetTlv(tlv)
+}
+
+func (iih *iihPdu) IpInterfaceAddressTlv() (*ipInterfaceAddressTlv, error) {
+	tlvtmp, err := iih.base.Tlv(TLV_CODE_IP_INTERFACE_ADDRESS)
+	if tlv, ok := tlvtmp.(*ipInterfaceAddressTlv); ok {
+		return tlv, err
+	}
+	return nil, err
+}
+
+func (iih *iihPdu) ClearIpInterfaceAddressTlvs() error {
+	return iih.base.ClearTlvs(TLV_CODE_IP_INTERFACE_ADDRESS)
+}
+
+func (iih *iihPdu) SetP2p3wayAdjacencyTlv(tlv *p2p3wayAdjacencyTlv) error {
+	return iih.base.SetTlv(tlv)
+}
+
+func (iih *iihPdu) P2p3wayAdjacencyTlv() (*p2p3wayAdjacencyTlv, error) {
+	tlvtmp, err := iih.base.Tlv(TLV_CODE_P2P_3WAY_ADJ)
+	if tlv, ok := tlvtmp.(*p2p3wayAdjacencyTlv); ok {
+		return tlv, err
+	}
+	return nil, err
+}
+
+func (iih *iihPdu) ClearP2p3wayAdjacencyTlvs() error {
+	return iih.base.ClearTlvs(TLV_CODE_P2P_3WAY_ADJ)
+}
+
+func (iih *iihPdu) SetIpv6InterfaceAddressTlv(tlv *ipv6InterfaceAddressTlv) error {
+	return iih.base.SetTlv(tlv)
+}
+
+func (iih *iihPdu) Ipv6InterfaceAddressTlv() (*ipv6InterfaceAddressTlv, error) {
+	tlvtmp, err := iih.base.Tlv(TLV_CODE_IPV6_INTERFACE_ADDRESS)
+	if tlv, ok := tlvtmp.(*ipv6InterfaceAddressTlv); ok {
+		return tlv, err
+	}
+	return nil, err
+}
+
+func (iih *iihPdu) ClearIpv6InterfaceAddressTlvs() error {
+	return iih.base.ClearTlvs(TLV_CODE_IPV6_INTERFACE_ADDRESS)
 }

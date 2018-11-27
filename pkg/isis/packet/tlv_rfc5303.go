@@ -53,6 +53,10 @@ func (tlv *p2p3wayAdjacencyTlv) SetNeighbourSystemId(neighbourSystemId []byte) e
 	return nil
 }
 
+func (tlv *p2p3wayAdjacencyTlv) TlvCode() TlvCode {
+	return tlv.base.code
+}
+
 func (tlv *p2p3wayAdjacencyTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())

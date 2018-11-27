@@ -11,12 +11,14 @@ const (
 )
 
 type IsisPdu interface {
+	PduType() PduType
 	String() string
 	DecodeFromBytes(data []byte) error
 	Serialize() ([]byte, error)
 }
 
 type IsisTlv interface {
+	TlvCode() TlvCode
 	String() string
 	DecodeFromBytes(data []byte) error
 	Serialize() ([]byte, error)

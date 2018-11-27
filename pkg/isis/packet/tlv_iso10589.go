@@ -75,6 +75,10 @@ func (tlv *areaAddressesTlv) RemoveAreaAddress(areaAddress []byte) error {
 	return nil
 }
 
+func (tlv *areaAddressesTlv) TlvCode() TlvCode {
+	return tlv.base.code
+}
+
 func (tlv *areaAddressesTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
@@ -242,6 +246,10 @@ func (tlv *isNeighboursLspTlv) RemoveNeighbour(neighbourId []byte) error {
 	tlv.neighbours = neighbours
 	tlv.base.length = uint8(1 + length)
 	return nil
+}
+
+func (tlv *isNeighboursLspTlv) TlvCode() TlvCode {
+	return tlv.base.code
 }
 
 func (tlv *isNeighboursLspTlv) String() string {
@@ -412,6 +420,10 @@ func (tlv *partitionDesignatedL2IsTlv) SetDesignatedL2IsId(designatedL2IsId []by
 	return nil
 }
 
+func (tlv *partitionDesignatedL2IsTlv) TlvCode() TlvCode {
+	return tlv.base.code
+}
+
 func (tlv *partitionDesignatedL2IsTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
@@ -541,6 +553,10 @@ func (tlv *isNeighboursHelloTlv) RemoveLanAddress(lanAddress []byte) error {
 	return nil
 }
 
+func (tlv *isNeighboursHelloTlv) TlvCode() TlvCode {
+	return tlv.base.code
+}
+
 func (tlv *isNeighboursHelloTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
@@ -640,6 +656,10 @@ func (tlv *paddingTlv) SetLength(length uint8) error {
 	tlv.base.length = length
 	tlv.base.value = value
 	return nil
+}
+
+func (tlv *paddingTlv) TlvCode() TlvCode {
+	return tlv.base.code
 }
 
 func (tlv *paddingTlv) String() string {
@@ -759,6 +779,10 @@ func (tlv *lspEntriesTlv) RemoveLspEntry(lspId []byte) error {
 	return nil
 }
 
+func (tlv *lspEntriesTlv) TlvCode() TlvCode {
+	return tlv.base.code
+}
+
 func (tlv *lspEntriesTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
@@ -854,6 +878,10 @@ func NewAuthInfoTlv() (*authInfoTlv, error) {
 	return &tlv, nil
 }
 
+func (tlv *authInfoTlv) TlvCode() TlvCode {
+	return tlv.base.code
+}
+
 func (tlv *authInfoTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
@@ -914,6 +942,10 @@ func NewLspBuffSizeTlv() (*lspBuffSizeTlv, error) {
 	}
 	tlv.base.init()
 	return &tlv, nil
+}
+
+func (tlv *lspBuffSizeTlv) TlvCode() TlvCode {
+	return tlv.base.code
 }
 
 func (tlv *lspBuffSizeTlv) String() string {

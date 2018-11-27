@@ -39,6 +39,10 @@ func (tlv *dynamicHostnameTlv) SetDynamicHostname(dynamicHostname []byte) error 
 	return nil
 }
 
+func (tlv *dynamicHostnameTlv) TlvCode() TlvCode {
+	return tlv.base.code
+}
+
 func (tlv *dynamicHostnameTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())

@@ -41,6 +41,10 @@ func NewSnPdu(pduType PduType) (*snPdu, error) {
 	return &sn, nil
 }
 
+func (sn *snPdu) PduType() PduType {
+	return sn.base.pduType
+}
+
 func (sn *snPdu) String() string {
 	var b bytes.Buffer
 	b.WriteString(sn.base.StringFixed())
@@ -110,4 +114,42 @@ func (sn *snPdu) Serialize() ([]byte, error) {
 		copy(data[13+sn.base.idLength*2:15+sn.base.idLength*3], sn.endLspId)
 	}
 	return data, nil
+}
+
+func (sn *snPdu) AddLspEntriesTlv(tlv *lspEntriesTlv) error {
+	return sn.base.AddTlv(tlv)
+}
+
+func (sn *snPdu) LspEntriesTlvs() ([]*lspEntriesTlv, error) {
+	tlvs := make([]*lspEntriesTlv, 0)
+	tlvstmp, err := sn.base.Tlvs(TLV_CODE_LSP_ENTRIES)
+	if err != nil {
+		return nil, err
+	}
+	for _, tlvtmp := range tlvstmp {
+		if tlv, ok := tlvtmp.(*lspEntriesTlv); ok {
+			tlvs = append(tlvs, tlv)
+		}
+	}
+	return tlvs, nil
+}
+
+func (sn *snPdu) ClearLspEntriesTlvs() error {
+	return sn.base.ClearTlvs(TLV_CODE_LSP_ENTRIES)
+}
+
+func (sn *snPdu) SetAuthInfoTlv(tlv *authInfoTlv) error {
+	return sn.base.SetTlv(tlv)
+}
+
+func (sn *snPdu) AuthInfoTlv() (*authInfoTlv, error) {
+	tlvtmp, err := sn.base.Tlv(TLV_CODE_AUTH_INFO)
+	if tlv, ok := tlvtmp.(*authInfoTlv); ok {
+		return tlv, err
+	}
+	return nil, err
+}
+
+func (sn *snPdu) ClearAuthInfoTlvs() error {
+	return sn.base.ClearTlvs(TLV_CODE_AUTH_INFO)
 }

@@ -196,3 +196,50 @@ func DecodePduFromBytes(data []byte) (IsisPdu, error) {
 	err = pdu.DecodeFromBytes(data)
 	return pdu, err
 }
+
+func (base *pduBase) SetTlv(tlv IsisTlv) error {
+	tlvs := make([]IsisTlv, 0)
+	for _, tlvtmp := range base.tlvs {
+		if tlvtmp.TlvCode() != tlv.TlvCode() {
+			tlvs = append(tlvs, tlvtmp)
+		}
+	}
+	tlvs = append(tlvs, tlv)
+	base.tlvs = tlvs
+	return nil
+}
+
+func (base *pduBase) Tlv(tlvCode TlvCode) (IsisTlv, error) {
+	for _, tlv := range base.tlvs {
+		if tlv.TlvCode() == tlvCode {
+			return tlv, nil
+		}
+	}
+	return nil, nil
+}
+
+func (base *pduBase) AddTlv(tlv IsisTlv) error {
+	base.tlvs = append(base.tlvs, tlv)
+	return nil
+}
+
+func (base *pduBase) Tlvs(tlvCode TlvCode) ([]IsisTlv, error) {
+	tlvs := make([]IsisTlv, 0)
+	for _, tlv := range base.tlvs {
+		if tlv.TlvCode() == tlvCode {
+			tlvs = append(tlvs, tlv)
+		}
+	}
+	return tlvs, nil
+}
+
+func (base *pduBase) ClearTlvs(tlvCode TlvCode) error {
+	tlvs := make([]IsisTlv, 0)
+	for _, tlv := range base.tlvs {
+		if tlv.TlvCode() != tlvCode {
+			tlvs = append(tlvs, tlv)
+		}
+	}
+	base.tlvs = tlvs
+	return nil
+}

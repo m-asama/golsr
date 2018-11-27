@@ -106,6 +106,10 @@ func (tlv *ipInternalReachInfoTlv) RemoveIpSubnet(ipAddress, subnetMask uint32) 
 	return nil
 }
 
+func (tlv *ipInternalReachInfoTlv) TlvCode() TlvCode {
+	return tlv.base.code
+}
+
 func (tlv *ipInternalReachInfoTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
@@ -244,6 +248,10 @@ func (tlv *protocolsSupportedTlv) RemoveNlpId(nlpId NlpId) error {
 	tlv.nlpIds = nlpIds
 	tlv.base.length = uint8(len(tlv.nlpIds))
 	return nil
+}
+
+func (tlv *protocolsSupportedTlv) TlvCode() TlvCode {
+	return tlv.base.code
 }
 
 func (tlv *protocolsSupportedTlv) String() string {
@@ -390,6 +398,10 @@ func (tlv *ipExternalReachInfoTlv) RemoveIpSubnet(ipAddress, subnetMask uint32) 
 	return nil
 }
 
+func (tlv *ipExternalReachInfoTlv) TlvCode() TlvCode {
+	return tlv.base.code
+}
+
 func (tlv *ipExternalReachInfoTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
@@ -509,6 +521,10 @@ func (tlv *interDomainRoutingProtoInfoTlv) SetExternalInfo(externalInfo []byte) 
 	return nil
 }
 
+func (tlv *interDomainRoutingProtoInfoTlv) TlvCode() TlvCode {
+	return tlv.base.code
+}
+
 func (tlv *interDomainRoutingProtoInfoTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
@@ -605,6 +621,10 @@ func (tlv *ipInterfaceAddressTlv) RemoveIpAddress(ipAddress uint32) error {
 	tlv.IpAddresses = ipAddresses
 	tlv.base.length = uint8(len(tlv.IpAddresses) * 4)
 	return nil
+}
+
+func (tlv *ipInterfaceAddressTlv) TlvCode() TlvCode {
+	return tlv.base.code
 }
 
 func (tlv *ipInterfaceAddressTlv) String() string {

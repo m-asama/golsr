@@ -124,6 +124,10 @@ func (tlv *ipv6ReachabilityTlv) RemoveIpv6Prefix(ipv6Prefix [4]uint32, prefixLen
 	return nil
 }
 
+func (tlv *ipv6ReachabilityTlv) TlvCode() TlvCode {
+	return tlv.base.code
+}
+
 func (tlv *ipv6ReachabilityTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
@@ -314,6 +318,10 @@ func (tlv *ipv6InterfaceAddressTlv) RemoveIpv6Address(ipv6Address [4]uint32) err
 	tlv.ipv6Addresses = ipv6Addresses
 	tlv.base.length = uint8(len(tlv.ipv6Addresses) * 4)
 	return nil
+}
+
+func (tlv *ipv6InterfaceAddressTlv) TlvCode() TlvCode {
+	return tlv.base.code
 }
 
 func (tlv *ipv6InterfaceAddressTlv) String() string {

@@ -275,6 +275,10 @@ func (tlv *extendedIsReachabilityTlv) RemoveNeighbour(neighbourId []byte) error 
 	return nil
 }
 
+func (tlv *extendedIsReachabilityTlv) TlvCode() TlvCode {
+	return tlv.base.code
+}
+
 func (tlv *extendedIsReachabilityTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
@@ -539,6 +543,10 @@ func NewTrafficEngineeringRouterIdTlv() (*trafficEngineeringRouterIdTlv, error) 
 	return &tlv, nil
 }
 
+func (tlv *trafficEngineeringRouterIdTlv) TlvCode() TlvCode {
+	return tlv.base.code
+}
+
 func (tlv *trafficEngineeringRouterIdTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
@@ -674,6 +682,10 @@ func (tlv *extendedIpReachabilityTlv) RemoveIpv4Prefix(ipv4Prefix uint32, prefix
 	tlv.ipv4Prefixes = ipv4Prefixes
 	tlv.SetLength()
 	return nil
+}
+
+func (tlv *extendedIpReachabilityTlv) TlvCode() TlvCode {
+	return tlv.base.code
 }
 
 func (tlv *extendedIpReachabilityTlv) String() string {
