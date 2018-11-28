@@ -46,6 +46,25 @@ func TestIihPduP2pNew(t *testing.T) {
 		t.Fatalf("failed NewIihPdu: %#v", err)
 	}
 
+	tt, err := NewP2p3wayAdjacencyTlv()
+	if err != nil {
+		t.Fatalf("failed NewP2p3wayAdjacencyTlv: %#v", err)
+	}
+	tt.Adj3wayState = ADJ_3WAY_STATE_INITIALIZING
+	xx := []byte{0x01, 0x01, 0x01, 0x02, 0x02, 0x02}
+	tt.SetNeighbourSystemId(xx)
+	p1.SetP2p3wayAdjacencyTlv(tt)
+
+	//p1.ClearP2p3wayAdjacencyTlvs()
+
+	tt2, err := NewPaddingTlv()
+	if err != nil {
+		t.Fatalf("failed NewPaddingTlv: %#v", err)
+	}
+	tt2.SetLength(8)
+	p1.AddPaddingTlv(tt2)
+	p1.AddPaddingTlv(tt2)
+
 	d1, err := p1.Serialize()
 	if err != nil {
 		t.Fatalf("failed Serialize: %#v", err)
