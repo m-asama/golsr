@@ -1,5 +1,7 @@
 package config
 
+// draft-ietf-isis-yang-isis-cfg-25
+
 type TeRidConfig struct {
 	Ipv4RouterId *string `mapstructure:"ipv4-router-id"`
 	Ipv6RouterId *string `mapstructure:"ipv6-router-id"`
@@ -112,13 +114,13 @@ type DefaultMetric struct {
 	Level2 DefaultMetricLevel2 `mapstructure:"level-2"`
 }
 
-type AfConfig struct {
-	Af     *string `mapstructure:"af"`
-	Enable *bool   `mapstructure:"enable"`
+type AddressFamilyConfig struct {
+	AddressFamily *string `mapstructure:"address-family"`
+	Enable        *bool   `mapstructure:"enable"`
 }
 
-type Af struct {
-	Config AfConfig `mapstructure:"config" json:"config,omitempty"`
+type AddressFamily struct {
+	Config AddressFamilyConfig `mapstructure:"config" json:"config,omitempty"`
 }
 
 type PreferenceConfig struct {
@@ -266,7 +268,16 @@ type Metric struct {
 	Level2 MetricLevel2 `mapstructure:"level-2"`
 }
 
+type BfdConfig struct {
+	Enable                *bool   `mapstructure:"enable"`
+	LocalMultiplier       *string `mapstructure:"local-multiplier"`
+	DesiredMinTxInterval  *uint32 `mapstructure:"desired-min-tx-interval"`
+	RequiredMinRxInterval *uint32 `mapstructure:"required-min-rx-interval"`
+	MinInterval           *uint32 `mapstructure:"min-interval"`
+}
+
 type Bfd struct {
+	Config BfdConfig `mapstructure:"config" json:"config,omitempty"`
 }
 
 type InterfaceLdpConfig struct {
@@ -349,7 +360,7 @@ type Interface struct {
 	Priority            Priority             `mapstructure:"priority"`
 	Metric              Metric               `mapstructure:"metric"`
 	Bfd                 Bfd                  `mapstructure:"bfd"`
-	Afs                 []Af                 `mapstructure:"afs"`
+	AddressFamilies     []AddressFamily      `mapstructure:"address-families"`
 	Mpls                InterfaceMpls        `mapstructure:"mpls"`
 	FastReroute         InterfaceFastReroute `mapstructure:"fast-reroute"`
 	Topologies          []InterfaceTopology  `mapstructure:"topologies"`
@@ -364,24 +375,25 @@ type Config struct {
 	LspMtu               *uint16  `mapstructure:"lsp-mtu"`
 	LspLifetime          *uint16  `mapstructure:"lsp-lifetime"`
 	LspRefresh           *uint16  `mapstructure:"lsp-refresh"`
+	PoiTlv               *bool    `mapstructure:"poi-tlv"`
 }
 
 type IsisConfig struct {
 	Config            Config            `mapstructure:"config" json:"config,omitempty"`
-	Mpls              Mpls              `mapstructure:"mpls"`
-	AutoCost          AutoCost          `mapstructure:"auto-cost"`
 	GracefulRestart   GracefulRestart   `mapstructure:"graceful-restart"`
 	NSR               NSR               `mapstructure:"nsr"`
 	NodeTags          []NodeTag         `mapstructure:"node-tags"`
-	Authentication    Authentication    `mapstructure:"authentication"`
 	MetricType        MetricType        `mapstructure:"metric-type"`
 	DefaultMetric     DefaultMetric     `mapstructure:"default-metric"`
-	Afs               []Af              `mapstructure:"afs"`
+	AutoCost          AutoCost          `mapstructure:"auto-cost"`
+	Authentication    Authentication    `mapstructure:"authentication"`
+	AddressFamilies   []AddressFamily   `mapstructure:"address-families"`
+	Mpls              Mpls              `mapstructure:"mpls"`
+	SpfControl        SpfControl        `mapstructure:"spf-control"`
+	FastReroute       FastReroute       `mapstructure:"fast-reroute"`
 	Preference        Preference        `mapstructure:"preference"`
 	Overload          Overload          `mapstructure:"overload"`
 	OverloadMaxMetric OverloadMaxMetric `mapstructure:"overload-max-metric"`
-	FastReroute       FastReroute       `mapstructure:"fast-reroute"`
-	SpfControl        SpfControl        `mapstructure:"spf-control"`
 	Topologies        []Topology        `mapstructure:"topologies"`
 	Interfaces        []Interface       `mapstructure:"interfaces"`
 }
