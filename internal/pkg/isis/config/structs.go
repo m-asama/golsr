@@ -42,12 +42,12 @@ type GracefulRestart struct {
 	Config GracefulRestartConfig `mapstructure:"config" json:"config,omitempty"`
 }
 
-type NSRConfig struct {
+type NsrConfig struct {
 	Enable *bool `mapstructure:"enable"`
 }
 
-type NSR struct {
-	Config NSRConfig `mapstructure:"config" json:"config,omitempty"`
+type Nsr struct {
+	Config NsrConfig `mapstructure:"config" json:"config,omitempty"`
 }
 
 type NodeTagConfig struct {
@@ -97,7 +97,7 @@ type MetricType struct {
 }
 
 type DefaultMetricConfig struct {
-	Value *string `mapstructure:"value"`
+	Value *uint32 `mapstructure:"value"`
 }
 
 type DefaultMetricLevel1 struct {
@@ -185,7 +185,7 @@ type TopologyConfig struct {
 type Topology struct {
 	Config        TopologyConfig `mapstructure:"config" json:"config,omitempty"`
 	DefaultMetric DefaultMetric  `mapstructure:"default-metric"`
-	NodeTags      []NodeTag      `mapstructure:"node-tags"`
+	NodeTags      []*NodeTag     `mapstructure:"node-tags"`
 }
 
 type HelloPaddingConfig struct {
@@ -251,7 +251,7 @@ type Priority struct {
 }
 
 type MetricConfig struct {
-	Value *string `mapstructure:"value"`
+	Value *uint32 `mapstructure:"value"`
 }
 
 type MetricLevel1 struct {
@@ -336,19 +336,19 @@ type InterfaceTopology struct {
 }
 
 type InterfaceConfig struct {
-	Name                  *string  `mapstructure:"name"`
-	LevelType             *string  `mapstructure:"level-type"`
-	LspPacingInterval     *uint32  `mapstructure:"lsp-pacing-interval"`
-	LspRetransmitInterval *uint16  `mapstructure:"lsp-retransmit-interval"`
-	Passive               *bool    `mapstructure:"passive"`
-	CsnpInterval          *uint16  `mapstructure:"csnp-interval"`
-	MeshGroupEnable       *string  `mapstructure:"mesh-group-enable"`
-	MeshGroup             *uint8   `mapstructure:"mesh-group"`
-	InterfaceType         *string  `mapstructure:"interface-type"`
-	Enable                *bool    `mapstructure:"enable"`
-	Tag                   []uint32 `mapstructure:"tag-list"`
-	Tag64                 []uint64 `mapstructure:"tag64-list"`
-	NodeFlag              *bool    `mapstructure:"node-flag"`
+	Name                  *string   `mapstructure:"name"`
+	LevelType             *string   `mapstructure:"level-type"`
+	LspPacingInterval     *uint32   `mapstructure:"lsp-pacing-interval"`
+	LspRetransmitInterval *uint16   `mapstructure:"lsp-retransmit-interval"`
+	Passive               *bool     `mapstructure:"passive"`
+	CsnpInterval          *uint16   `mapstructure:"csnp-interval"`
+	MeshGroupEnable       *string   `mapstructure:"mesh-group-enable"`
+	MeshGroup             *uint8    `mapstructure:"mesh-group"`
+	InterfaceType         *string   `mapstructure:"interface-type"`
+	Enable                *bool     `mapstructure:"enable"`
+	Tag                   []*uint32 `mapstructure:"tag-list"`
+	Tag64                 []*uint64 `mapstructure:"tag64-list"`
+	NodeFlag              *bool     `mapstructure:"node-flag"`
 }
 
 type Interface struct {
@@ -360,40 +360,49 @@ type Interface struct {
 	Priority            Priority             `mapstructure:"priority"`
 	Metric              Metric               `mapstructure:"metric"`
 	Bfd                 Bfd                  `mapstructure:"bfd"`
-	AddressFamilies     []AddressFamily      `mapstructure:"address-families"`
+	AddressFamilies     []*AddressFamily     `mapstructure:"address-families"`
 	Mpls                InterfaceMpls        `mapstructure:"mpls"`
 	FastReroute         InterfaceFastReroute `mapstructure:"fast-reroute"`
-	Topologies          []InterfaceTopology  `mapstructure:"topologies"`
+	Topologies          []*InterfaceTopology `mapstructure:"topologies"`
 }
 
 type Config struct {
-	Enable               *bool    `mapstructure:"enable"`
-	LevelType            *string  `mapstructure:"level-type"`
-	SystemId             *string  `mapstructure:"system-id"`
-	MaximumAreaAddresses *uint8   `mapstructure:"maximum-area-addresses"`
-	AreaAddress          []string `mapstructure:"area-address-list"`
-	LspMtu               *uint16  `mapstructure:"lsp-mtu"`
-	LspLifetime          *uint16  `mapstructure:"lsp-lifetime"`
-	LspRefresh           *uint16  `mapstructure:"lsp-refresh"`
-	PoiTlv               *bool    `mapstructure:"poi-tlv"`
+	Enable               *bool     `mapstructure:"enable"`
+	LevelType            *string   `mapstructure:"level-type"`
+	SystemId             *string   `mapstructure:"system-id"`
+	MaximumAreaAddresses *uint8    `mapstructure:"maximum-area-addresses"`
+	AreaAddress          []*string `mapstructure:"area-address-list"`
+	LspMtu               *uint16   `mapstructure:"lsp-mtu"`
+	LspLifetime          *uint16   `mapstructure:"lsp-lifetime"`
+	LspRefresh           *uint16   `mapstructure:"lsp-refresh"`
+	PoiTlv               *bool     `mapstructure:"poi-tlv"`
 }
 
 type IsisConfig struct {
 	Config            Config            `mapstructure:"config" json:"config,omitempty"`
 	GracefulRestart   GracefulRestart   `mapstructure:"graceful-restart"`
-	NSR               NSR               `mapstructure:"nsr"`
-	NodeTags          []NodeTag         `mapstructure:"node-tags"`
+	Nsr               Nsr               `mapstructure:"nsr"`
+	NodeTags          []*NodeTag        `mapstructure:"node-tags"`
 	MetricType        MetricType        `mapstructure:"metric-type"`
 	DefaultMetric     DefaultMetric     `mapstructure:"default-metric"`
 	AutoCost          AutoCost          `mapstructure:"auto-cost"`
 	Authentication    Authentication    `mapstructure:"authentication"`
-	AddressFamilies   []AddressFamily   `mapstructure:"address-families"`
+	AddressFamilies   []*AddressFamily  `mapstructure:"address-families"`
 	Mpls              Mpls              `mapstructure:"mpls"`
 	SpfControl        SpfControl        `mapstructure:"spf-control"`
 	FastReroute       FastReroute       `mapstructure:"fast-reroute"`
 	Preference        Preference        `mapstructure:"preference"`
 	Overload          Overload          `mapstructure:"overload"`
 	OverloadMaxMetric OverloadMaxMetric `mapstructure:"overload-max-metric"`
-	Topologies        []Topology        `mapstructure:"topologies"`
-	Interfaces        []Interface       `mapstructure:"interfaces"`
+	Topologies        []*Topology       `mapstructure:"topologies"`
+	Interfaces        []*Interface      `mapstructure:"interfaces"`
+}
+
+func NewIsisConfig() *IsisConfig {
+	config := &IsisConfig{}
+	config.NodeTags = make([]*NodeTag, 0)
+	config.AddressFamilies = make([]*AddressFamily, 0)
+	config.Topologies = make([]*Topology, 0)
+	config.Interfaces = make([]*Interface, 0)
+	return config
 }

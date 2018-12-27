@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/jessevdk/go-flags"
@@ -45,6 +46,8 @@ func main() {
 		os.Exit(0)
 	}
 
+	log.SetReportCaller(true)
+
 	switch opts.LogLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
@@ -70,42 +73,36 @@ func main() {
 		log.SetFormatter(&log.JSONFormatter{})
 	}
 
-	var c *config.IsisConfig
-
-	configCh := make(chan *config.IsisConfig)
 	if opts.Dry {
+		configCh := make(chan *config.IsisConfig)
 		go config.ReadConfigfileServe(opts.ConfigFile, opts.ConfigType, configCh)
-		c = <-configCh
+		c := <-configCh
 		if opts.LogLevel == "debug" {
 			pretty.Println(c)
 		}
 		os.Exit(0)
 	}
 
+	var wg sync.WaitGroup
+
 	log.Info("goisisd started")
-	isisServer := server.NewIsisServer()
-	go isisServer.Serve()
+
+	isisServer := server.NewIsisServer(opts.ConfigFile, opts.ConfigType)
+	wg.Add(1)
+	go isisServer.Serve(&wg)
 
 	var grpcOpts []grpc.ServerOption
+	apiServer := server.NewApiServer(isisServer, grpc.NewServer(grpcOpts...), opts.GrpcHosts)
+	wg.Add(1)
+	go apiServer.Serve(&wg)
 
-	apiServer := server.NewServer(isisServer, grpc.NewServer(grpcOpts...), opts.GrpcHosts)
-	go func() {
-		if err := apiServer.Serve(); err != nil {
-			log.Fatalf("failed to listen grpc port: %s", err)
-		}
-	}()
+	<-sigCh
 
-	if opts.ConfigFile != "" {
-		go config.ReadConfigfileServe(opts.ConfigFile, opts.ConfigType, configCh)
-	}
+	log.Info("goisisd stoping")
+	apiServer.Disable(context.Background(), &api.DisableRequest{})
+	apiServer.Exit()
+	isisServer.Exit()
 
-	for {
-		select {
-		case <-sigCh:
-			apiServer.StopIsis(context.Background(), &api.StopIsisRequest{})
-		case newConfig := <-configCh:
-			_ = newConfig
-			log.Infof("newConfig")
-		}
-	}
+	wg.Wait()
+	log.Info("goisisd terminated")
 }

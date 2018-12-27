@@ -42,6 +42,16 @@ func NewAreaAddressesTlv() (*areaAddressesTlv, error) {
 	return &tlv, nil
 }
 
+func (tlv *areaAddressesTlv) AreaAddresses() [][]byte {
+	areaAddresses := make([][]byte, 0)
+	for _, tmp := range tlv.areaAddresses {
+		areaAddress := make([]byte, len(tmp))
+		copy(areaAddress, tmp)
+		areaAddresses = append(areaAddresses, tmp)
+	}
+	return areaAddresses
+}
+
 func (tlv *areaAddressesTlv) AddAreaAddress(areaAddress []byte) error {
 	length := 0
 	areaAddresses := make([][]byte, 0)
@@ -210,6 +220,16 @@ func NewIsNeighboursLspTlv() (*isNeighboursLspTlv, error) {
 	tlv.base.init()
 	tlv.neighbours = make([]isNeighboursLspNeighbour, 0)
 	return &tlv, nil
+}
+
+func (tlv *isNeighboursLspTlv) NeighbourIds() [][]byte {
+	neighbourIds := make([][]byte, 0)
+	for _, n := range tlv.neighbours {
+		neighbourId := make([]byte, len(n.neighbourId))
+		copy(neighbourId, n.neighbourId)
+		neighbourIds = append(neighbourIds, neighbourId)
+	}
+	return neighbourIds
 }
 
 func (tlv *isNeighboursLspTlv) AddNeighbour(neighbour *isNeighboursLspNeighbour) error {
@@ -523,6 +543,16 @@ func NewIsNeighboursHelloTlv() (*isNeighboursHelloTlv, error) {
 	return &tlv, nil
 }
 
+func (tlv *isNeighboursHelloTlv) LanAddresses() [][]byte {
+	lanAddresses := make([][]byte, 0)
+	for _, latmp := range tlv.lanAddresses {
+		lanAddress := make([]byte, len(latmp))
+		copy(lanAddress, latmp)
+		lanAddresses = append(lanAddresses, lanAddress)
+	}
+	return lanAddresses
+}
+
 func (tlv *isNeighboursHelloTlv) AddLanAddress(lanAddress []byte) error {
 	if len(lanAddress) != 6 {
 		return errors.New("IsNeighboursHelloTlv.AddLanAddress: lanAddress length invalid")
@@ -730,6 +760,12 @@ func NewLspEntriesLspEntry(lspId []byte) (*lspEntriesLspEntry, error) {
 	return &lspEntry, nil
 }
 
+func (lspEntry *lspEntriesLspEntry) LspId() []byte {
+	lspId := make([]byte, len(lspEntry.lspId))
+	copy(lspId, lspEntry.lspId)
+	return lspId
+}
+
 type lspEntriesTlv struct {
 	base       tlvBase
 	lspEntries []lspEntriesLspEntry
@@ -744,6 +780,10 @@ func NewLspEntriesTlv() (*lspEntriesTlv, error) {
 	tlv.base.init()
 	tlv.lspEntries = make([]lspEntriesLspEntry, 0)
 	return &tlv, nil
+}
+
+func (tlv *lspEntriesTlv) LspEntries() []lspEntriesLspEntry {
+	return tlv.lspEntries
 }
 
 func (tlv *lspEntriesTlv) AddLspEntry(lspEntry *lspEntriesLspEntry) error {

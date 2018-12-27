@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	//yaml "gopkg.in/yaml.v2"
 )
 
 func detectConfigFileType(path, def string) string {
@@ -24,7 +25,7 @@ func detectConfigFileType(path, def string) string {
 
 func ReadConfigfileServe(path, format string, configCh chan *IsisConfig) {
 
-	log.Info("ReadConfigfileServe started")
+	//log.Info("ReadConfigfileServe started")
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGHUP)
@@ -45,16 +46,29 @@ func ReadConfigfileServe(path, format string, configCh chan *IsisConfig) {
 		if err = v.UnmarshalExact(c); err != nil {
 			goto ERROR
 		}
-		/*
-			if err = setDefaultConfigValuesWithViper(v, c); err != nil {
-				goto ERROR
-			}
-		*/
+		c.fillDefaults()
+		if err = c.validate(); err != nil {
+			goto ERROR
+		}
 		if cnt == 0 {
 			log.WithFields(log.Fields{
 				"Topic": "Config",
 			}).Info("Finished reading the config file")
 		}
+		/*
+			if err = v.WriteConfigAs("/tmp/goisisd.toml"); err != nil {
+				log.Info("WriteConfigAs failed", err)
+			} else {
+				log.Info("WriteConfigAs success")
+			}
+			bs, err = yaml.Marshal(c)
+			if err != nil {
+				log.Info("yaml.Marshal error")
+			} else {
+				fmt.Printf("\n%s", string(bs))
+			}
+		*/
+
 		cnt++
 		configCh <- c
 		goto NEXT

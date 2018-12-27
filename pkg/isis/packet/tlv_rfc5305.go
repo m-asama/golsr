@@ -227,6 +227,16 @@ func NewExtendedIsReachabilityTlv() (*extendedIsReachabilityTlv, error) {
 	return &tlv, nil
 }
 
+func (tlv *extendedIsReachabilityTlv) NeighbourIds() [][]byte {
+	neighbourIds := make([][]byte, 0)
+	for _, n := range tlv.neighbours {
+		neighbourId := make([]byte, len(n.neighbourId))
+		copy(neighbourId, n.neighbourId)
+		neighbourIds = append(neighbourIds, neighbourId)
+	}
+	return neighbourIds
+}
+
 func (tlv *extendedIsReachabilityTlv) SetLength() {
 	length := 0
 	for _, ntmp := range tlv.neighbours {

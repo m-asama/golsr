@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-type lsPdu struct {
+type LsPdu struct {
 	base pduBase
 
 	RemainingLifetime     uint16
@@ -23,14 +23,14 @@ type lsPdu struct {
 	IsType                IsType
 }
 
-func NewLsPdu(pduType PduType) (*lsPdu, error) {
+func NewLsPdu(pduType PduType) (*LsPdu, error) {
 	var lengthIndicator uint8
 	if pduType != PDU_TYPE_LEVEL1_LSP &&
 		pduType != PDU_TYPE_LEVEL2_LSP {
 		return nil, errors.New("NewLsPdu: pduType invalid")
 	}
 	lengthIndicator = 21 + SYSTEM_ID_LENGTH
-	ls := lsPdu{
+	ls := LsPdu{
 		base: pduBase{
 			lengthIndicator: lengthIndicator,
 			pduType:         pduType,
@@ -41,11 +41,11 @@ func NewLsPdu(pduType PduType) (*lsPdu, error) {
 	return &ls, nil
 }
 
-func (ls *lsPdu) PduType() PduType {
+func (ls *LsPdu) PduType() PduType {
 	return ls.base.pduType
 }
 
-func (ls *lsPdu) String() string {
+func (ls *LsPdu) String() string {
 	var b bytes.Buffer
 	b.WriteString(ls.base.StringFixed())
 	fmt.Fprintf(&b, "RemainingLifetime               %d\n", ls.RemainingLifetime)
@@ -67,7 +67,7 @@ func (ls *lsPdu) String() string {
 	return b.String()
 }
 
-func (ls *lsPdu) DecodeFromBytes(data []byte) error {
+func (ls *LsPdu) DecodeFromBytes(data []byte) error {
 	err := ls.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
@@ -134,7 +134,7 @@ func (ls *lsPdu) DecodeFromBytes(data []byte) error {
 	return nil
 }
 
-func (ls *lsPdu) Serialize() ([]byte, error) {
+func (ls *LsPdu) Serialize() ([]byte, error) {
 	data, err := ls.base.Serialize()
 	if err != nil {
 		return data, err
@@ -199,11 +199,31 @@ func (ls *lsPdu) Serialize() ([]byte, error) {
 	return data, nil
 }
 
-func (ls *lsPdu) SetAreaAddressesTlv(tlv *areaAddressesTlv) error {
+func (ls *LsPdu) BaseValid() bool {
+	return ls.base.valid()
+}
+
+func (ls *LsPdu) LspId() []byte {
+	lspId := make([]byte, len(ls.lspId))
+	copy(lspId, ls.lspId)
+	return lspId
+}
+
+func (ls *LsPdu) SetLspId(lspId []byte) error {
+	if len(lspId) != LSP_ID_LENGTH {
+		return errors.New("LsPdu.SetLspId: LSP ID length invalid")
+	}
+	lidtmp := make([]byte, LSP_ID_LENGTH)
+	copy(lidtmp, lspId)
+	ls.lspId = lidtmp
+	return nil
+}
+
+func (ls *LsPdu) SetAreaAddressesTlv(tlv *areaAddressesTlv) error {
 	return ls.base.SetTlv(tlv)
 }
 
-func (ls *lsPdu) AreaAddressesTlv() (*areaAddressesTlv, error) {
+func (ls *LsPdu) AreaAddressesTlv() (*areaAddressesTlv, error) {
 	tlvtmp, err := ls.base.Tlv(TLV_CODE_AREA_ADDRESSES)
 	if tlv, ok := tlvtmp.(*areaAddressesTlv); ok {
 		return tlv, err
@@ -211,15 +231,15 @@ func (ls *lsPdu) AreaAddressesTlv() (*areaAddressesTlv, error) {
 	return nil, err
 }
 
-func (ls *lsPdu) ClearAreaAddressesTlvs() error {
+func (ls *LsPdu) ClearAreaAddressesTlvs() error {
 	return ls.base.ClearTlvs(TLV_CODE_AREA_ADDRESSES)
 }
 
-func (ls *lsPdu) AddIsNeighboursLspTlv(tlv *isNeighboursLspTlv) error {
+func (ls *LsPdu) AddIsNeighboursLspTlv(tlv *isNeighboursLspTlv) error {
 	return ls.base.AddTlv(tlv)
 }
 
-func (ls *lsPdu) IsNeighboursLspTlvs() ([]*isNeighboursLspTlv, error) {
+func (ls *LsPdu) IsNeighboursLspTlvs() ([]*isNeighboursLspTlv, error) {
 	tlvs := make([]*isNeighboursLspTlv, 0)
 	tlvstmp, err := ls.base.Tlvs(TLV_CODE_IS_NEIGHBOURS_LSP)
 	if err != nil {
@@ -233,15 +253,15 @@ func (ls *lsPdu) IsNeighboursLspTlvs() ([]*isNeighboursLspTlv, error) {
 	return tlvs, nil
 }
 
-func (ls *lsPdu) ClearIsNeighboursLspTlvs() error {
+func (ls *LsPdu) ClearIsNeighboursLspTlvs() error {
 	return ls.base.ClearTlvs(TLV_CODE_IS_NEIGHBOURS_LSP)
 }
 
-func (ls *lsPdu) SetPartitionDesignatedL2IsTlv(tlv *partitionDesignatedL2IsTlv) error {
+func (ls *LsPdu) SetPartitionDesignatedL2IsTlv(tlv *partitionDesignatedL2IsTlv) error {
 	return ls.base.SetTlv(tlv)
 }
 
-func (ls *lsPdu) PartitionDesignatedL2IsTlv() (*partitionDesignatedL2IsTlv, error) {
+func (ls *LsPdu) PartitionDesignatedL2IsTlv() (*partitionDesignatedL2IsTlv, error) {
 	tlvtmp, err := ls.base.Tlv(TLV_CODE_PARTITION_DESIGNATED_L2_IS)
 	if tlv, ok := tlvtmp.(*partitionDesignatedL2IsTlv); ok {
 		return tlv, err
@@ -249,15 +269,15 @@ func (ls *lsPdu) PartitionDesignatedL2IsTlv() (*partitionDesignatedL2IsTlv, erro
 	return nil, err
 }
 
-func (ls *lsPdu) ClearPartitionDesignatedL2IsTlvs() error {
+func (ls *LsPdu) ClearPartitionDesignatedL2IsTlvs() error {
 	return ls.base.ClearTlvs(TLV_CODE_PARTITION_DESIGNATED_L2_IS)
 }
 
-func (ls *lsPdu) SetAuthInfoTlv(tlv *authInfoTlv) error {
+func (ls *LsPdu) SetAuthInfoTlv(tlv *authInfoTlv) error {
 	return ls.base.SetTlv(tlv)
 }
 
-func (ls *lsPdu) AuthInfoTlv() (*authInfoTlv, error) {
+func (ls *LsPdu) AuthInfoTlv() (*authInfoTlv, error) {
 	tlvtmp, err := ls.base.Tlv(TLV_CODE_AUTH_INFO)
 	if tlv, ok := tlvtmp.(*authInfoTlv); ok {
 		return tlv, err
@@ -265,15 +285,15 @@ func (ls *lsPdu) AuthInfoTlv() (*authInfoTlv, error) {
 	return nil, err
 }
 
-func (ls *lsPdu) ClearAuthInfoTlvs() error {
+func (ls *LsPdu) ClearAuthInfoTlvs() error {
 	return ls.base.ClearTlvs(TLV_CODE_AUTH_INFO)
 }
 
-func (ls *lsPdu) AddIpInternalReachInfoTlv(tlv *ipInternalReachInfoTlv) error {
+func (ls *LsPdu) AddIpInternalReachInfoTlv(tlv *ipInternalReachInfoTlv) error {
 	return ls.base.AddTlv(tlv)
 }
 
-func (ls *lsPdu) IpInternalReachInfoTlvs() ([]*ipInternalReachInfoTlv, error) {
+func (ls *LsPdu) IpInternalReachInfoTlvs() ([]*ipInternalReachInfoTlv, error) {
 	tlvs := make([]*ipInternalReachInfoTlv, 0)
 	tlvstmp, err := ls.base.Tlvs(TLV_CODE_IP_INTERNAL_REACH_INFO)
 	if err != nil {
@@ -287,15 +307,15 @@ func (ls *lsPdu) IpInternalReachInfoTlvs() ([]*ipInternalReachInfoTlv, error) {
 	return tlvs, nil
 }
 
-func (ls *lsPdu) ClearIpInternalReachInfoTlvs() error {
+func (ls *LsPdu) ClearIpInternalReachInfoTlvs() error {
 	return ls.base.ClearTlvs(TLV_CODE_IP_INTERNAL_REACH_INFO)
 }
 
-func (ls *lsPdu) SetProtocolsSupportedTlv(tlv *protocolsSupportedTlv) error {
+func (ls *LsPdu) SetProtocolsSupportedTlv(tlv *protocolsSupportedTlv) error {
 	return ls.base.SetTlv(tlv)
 }
 
-func (ls *lsPdu) ProtocolsSupportedTlv() (*protocolsSupportedTlv, error) {
+func (ls *LsPdu) ProtocolsSupportedTlv() (*protocolsSupportedTlv, error) {
 	tlvtmp, err := ls.base.Tlv(TLV_CODE_PROTOCOLS_SUPPORTED)
 	if tlv, ok := tlvtmp.(*protocolsSupportedTlv); ok {
 		return tlv, err
@@ -303,15 +323,15 @@ func (ls *lsPdu) ProtocolsSupportedTlv() (*protocolsSupportedTlv, error) {
 	return nil, err
 }
 
-func (ls *lsPdu) ClearProtocolsSupportedTlvs() error {
+func (ls *LsPdu) ClearProtocolsSupportedTlvs() error {
 	return ls.base.ClearTlvs(TLV_CODE_PROTOCOLS_SUPPORTED)
 }
 
-func (ls *lsPdu) AddIpExternalReachInfoTlv(tlv *ipExternalReachInfoTlv) error {
+func (ls *LsPdu) AddIpExternalReachInfoTlv(tlv *ipExternalReachInfoTlv) error {
 	return ls.base.AddTlv(tlv)
 }
 
-func (ls *lsPdu) IpExternalReachInfoTlvs() ([]*ipExternalReachInfoTlv, error) {
+func (ls *LsPdu) IpExternalReachInfoTlvs() ([]*ipExternalReachInfoTlv, error) {
 	tlvs := make([]*ipExternalReachInfoTlv, 0)
 	tlvstmp, err := ls.base.Tlvs(TLV_CODE_IP_EXTERNAL_REACH_INFO)
 	if err != nil {
@@ -325,15 +345,15 @@ func (ls *lsPdu) IpExternalReachInfoTlvs() ([]*ipExternalReachInfoTlv, error) {
 	return tlvs, nil
 }
 
-func (ls *lsPdu) ClearIpExternalReachInfoTlvs() error {
+func (ls *LsPdu) ClearIpExternalReachInfoTlvs() error {
 	return ls.base.ClearTlvs(TLV_CODE_IP_EXTERNAL_REACH_INFO)
 }
 
-func (ls *lsPdu) AddInterDomainRoutingProtoInfoTlv(tlv *interDomainRoutingProtoInfoTlv) error {
+func (ls *LsPdu) AddInterDomainRoutingProtoInfoTlv(tlv *interDomainRoutingProtoInfoTlv) error {
 	return ls.base.AddTlv(tlv)
 }
 
-func (ls *lsPdu) InterDomainRoutingProtoInfoTlvs() ([]*interDomainRoutingProtoInfoTlv, error) {
+func (ls *LsPdu) InterDomainRoutingProtoInfoTlvs() ([]*interDomainRoutingProtoInfoTlv, error) {
 	tlvs := make([]*interDomainRoutingProtoInfoTlv, 0)
 	tlvstmp, err := ls.base.Tlvs(TLV_CODE_INTER_DOMAIN_ROUTING_PROTO_INFO)
 	if err != nil {
@@ -347,15 +367,15 @@ func (ls *lsPdu) InterDomainRoutingProtoInfoTlvs() ([]*interDomainRoutingProtoIn
 	return tlvs, nil
 }
 
-func (ls *lsPdu) ClearInterDomainRoutingProtoInfoTlvs() error {
+func (ls *LsPdu) ClearInterDomainRoutingProtoInfoTlvs() error {
 	return ls.base.ClearTlvs(TLV_CODE_INTER_DOMAIN_ROUTING_PROTO_INFO)
 }
 
-func (ls *lsPdu) SetIpInterfaceAddressTlv(tlv *ipInterfaceAddressTlv) error {
+func (ls *LsPdu) SetIpInterfaceAddressTlv(tlv *ipInterfaceAddressTlv) error {
 	return ls.base.SetTlv(tlv)
 }
 
-func (ls *lsPdu) IpInterfaceAddressTlv() (*ipInterfaceAddressTlv, error) {
+func (ls *LsPdu) IpInterfaceAddressTlv() (*ipInterfaceAddressTlv, error) {
 	tlvtmp, err := ls.base.Tlv(TLV_CODE_IP_INTERFACE_ADDRESS)
 	if tlv, ok := tlvtmp.(*ipInterfaceAddressTlv); ok {
 		return tlv, err
@@ -363,15 +383,15 @@ func (ls *lsPdu) IpInterfaceAddressTlv() (*ipInterfaceAddressTlv, error) {
 	return nil, err
 }
 
-func (ls *lsPdu) ClearIpInterfaceAddressTlvs() error {
+func (ls *LsPdu) ClearIpInterfaceAddressTlvs() error {
 	return ls.base.ClearTlvs(TLV_CODE_IP_INTERFACE_ADDRESS)
 }
 
-func (ls *lsPdu) SetDynamicHostnameTlv(tlv *dynamicHostnameTlv) error {
+func (ls *LsPdu) SetDynamicHostnameTlv(tlv *dynamicHostnameTlv) error {
 	return ls.base.SetTlv(tlv)
 }
 
-func (ls *lsPdu) DynamicHostnameTlv() (*dynamicHostnameTlv, error) {
+func (ls *LsPdu) DynamicHostnameTlv() (*dynamicHostnameTlv, error) {
 	tlvtmp, err := ls.base.Tlv(TLV_CODE_DYNAMIC_HOSTNAME)
 	if tlv, ok := tlvtmp.(*dynamicHostnameTlv); ok {
 		return tlv, err
@@ -379,15 +399,15 @@ func (ls *lsPdu) DynamicHostnameTlv() (*dynamicHostnameTlv, error) {
 	return nil, err
 }
 
-func (ls *lsPdu) ClearDynamicHostnameTlvs() error {
+func (ls *LsPdu) ClearDynamicHostnameTlvs() error {
 	return ls.base.ClearTlvs(TLV_CODE_DYNAMIC_HOSTNAME)
 }
 
-func (ls *lsPdu) AddExtendedIsReachabilityTlv(tlv *extendedIsReachabilityTlv) error {
+func (ls *LsPdu) AddExtendedIsReachabilityTlv(tlv *extendedIsReachabilityTlv) error {
 	return ls.base.AddTlv(tlv)
 }
 
-func (ls *lsPdu) ExtendedIsReachabilityTlvs() ([]*extendedIsReachabilityTlv, error) {
+func (ls *LsPdu) ExtendedIsReachabilityTlvs() ([]*extendedIsReachabilityTlv, error) {
 	tlvs := make([]*extendedIsReachabilityTlv, 0)
 	tlvstmp, err := ls.base.Tlvs(TLV_CODE_EXTENDED_IS_REACHABILITY)
 	if err != nil {
@@ -401,15 +421,15 @@ func (ls *lsPdu) ExtendedIsReachabilityTlvs() ([]*extendedIsReachabilityTlv, err
 	return tlvs, nil
 }
 
-func (ls *lsPdu) ClearExtendedIsReachabilityTlvs() error {
+func (ls *LsPdu) ClearExtendedIsReachabilityTlvs() error {
 	return ls.base.ClearTlvs(TLV_CODE_EXTENDED_IS_REACHABILITY)
 }
 
-func (ls *lsPdu) SetTrafficEngineeringRouterIdTlv(tlv *trafficEngineeringRouterIdTlv) error {
+func (ls *LsPdu) SetTrafficEngineeringRouterIdTlv(tlv *trafficEngineeringRouterIdTlv) error {
 	return ls.base.SetTlv(tlv)
 }
 
-func (ls *lsPdu) TrafficEngineeringRouterIdTlv() (*trafficEngineeringRouterIdTlv, error) {
+func (ls *LsPdu) TrafficEngineeringRouterIdTlv() (*trafficEngineeringRouterIdTlv, error) {
 	tlvtmp, err := ls.base.Tlv(TLV_CODE_TRAFFIC_ENGINEERING_ROUTER_ID)
 	if tlv, ok := tlvtmp.(*trafficEngineeringRouterIdTlv); ok {
 		return tlv, err
@@ -417,15 +437,15 @@ func (ls *lsPdu) TrafficEngineeringRouterIdTlv() (*trafficEngineeringRouterIdTlv
 	return nil, err
 }
 
-func (ls *lsPdu) ClearTrafficEngineeringRouterIdTlvs() error {
+func (ls *LsPdu) ClearTrafficEngineeringRouterIdTlvs() error {
 	return ls.base.ClearTlvs(TLV_CODE_TRAFFIC_ENGINEERING_ROUTER_ID)
 }
 
-func (ls *lsPdu) AddExtendedIpReachabilityTlv(tlv *extendedIpReachabilityTlv) error {
+func (ls *LsPdu) AddExtendedIpReachabilityTlv(tlv *extendedIpReachabilityTlv) error {
 	return ls.base.AddTlv(tlv)
 }
 
-func (ls *lsPdu) ExtendedIpReachabilityTlvs() ([]*extendedIpReachabilityTlv, error) {
+func (ls *LsPdu) ExtendedIpReachabilityTlvs() ([]*extendedIpReachabilityTlv, error) {
 	tlvs := make([]*extendedIpReachabilityTlv, 0)
 	tlvstmp, err := ls.base.Tlvs(TLV_CODE_EXTENDED_IP_REACHABILITY)
 	if err != nil {
@@ -439,15 +459,15 @@ func (ls *lsPdu) ExtendedIpReachabilityTlvs() ([]*extendedIpReachabilityTlv, err
 	return tlvs, nil
 }
 
-func (ls *lsPdu) ClearExtendedIpReachabilityTlvs() error {
+func (ls *LsPdu) ClearExtendedIpReachabilityTlvs() error {
 	return ls.base.ClearTlvs(TLV_CODE_EXTENDED_IP_REACHABILITY)
 }
 
-func (ls *lsPdu) AddIpv6ReachabilityTlv(tlv *ipv6ReachabilityTlv) error {
+func (ls *LsPdu) AddIpv6ReachabilityTlv(tlv *ipv6ReachabilityTlv) error {
 	return ls.base.AddTlv(tlv)
 }
 
-func (ls *lsPdu) Ipv6ReachabilityTlvs() ([]*ipv6ReachabilityTlv, error) {
+func (ls *LsPdu) Ipv6ReachabilityTlvs() ([]*ipv6ReachabilityTlv, error) {
 	tlvs := make([]*ipv6ReachabilityTlv, 0)
 	tlvstmp, err := ls.base.Tlvs(TLV_CODE_IPV6_REACHABILITY)
 	if err != nil {
@@ -461,15 +481,15 @@ func (ls *lsPdu) Ipv6ReachabilityTlvs() ([]*ipv6ReachabilityTlv, error) {
 	return tlvs, nil
 }
 
-func (ls *lsPdu) ClearIpv6ReachabilityTlvs() error {
+func (ls *LsPdu) ClearIpv6ReachabilityTlvs() error {
 	return ls.base.ClearTlvs(TLV_CODE_IPV6_REACHABILITY)
 }
 
-func (ls *lsPdu) SetIpv6InterfaceAddressTlv(tlv *ipv6InterfaceAddressTlv) error {
+func (ls *LsPdu) SetIpv6InterfaceAddressTlv(tlv *ipv6InterfaceAddressTlv) error {
 	return ls.base.SetTlv(tlv)
 }
 
-func (ls *lsPdu) Ipv6InterfaceAddressTlv() (*ipv6InterfaceAddressTlv, error) {
+func (ls *LsPdu) Ipv6InterfaceAddressTlv() (*ipv6InterfaceAddressTlv, error) {
 	tlvtmp, err := ls.base.Tlv(TLV_CODE_IPV6_INTERFACE_ADDRESS)
 	if tlv, ok := tlvtmp.(*ipv6InterfaceAddressTlv); ok {
 		return tlv, err
@@ -477,6 +497,6 @@ func (ls *lsPdu) Ipv6InterfaceAddressTlv() (*ipv6InterfaceAddressTlv, error) {
 	return nil, err
 }
 
-func (ls *lsPdu) ClearIpv6InterfaceAddressTlvs() error {
+func (ls *LsPdu) ClearIpv6InterfaceAddressTlvs() error {
 	return ls.base.ClearTlvs(TLV_CODE_IPV6_INTERFACE_ADDRESS)
 }

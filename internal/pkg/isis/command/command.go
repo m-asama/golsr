@@ -93,7 +93,29 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().BoolVarP(&globalOpts.GenCmpl, "gen-cmpl", "c", false, "generate completion file")
 	//rootCmd.PersistentFlags().StringVarP(&globalOpts.BashCmplFile, "bash-cmpl-file", "", "goisis-completion.bash", "bash cmpl filename")
 
+	enableCmd := &cobra.Command{
+		Use: "enable",
+		Run: func(cmd *cobra.Command, args []string) {
+			response, _ := client.Enable(ctx, &api.EnableRequest{})
+			fmt.Println(response.Result)
+		},
+	}
+	rootCmd.AddCommand(enableCmd)
+
+	disableCmd := &cobra.Command{
+		Use: "disable",
+		Run: func(cmd *cobra.Command, args []string) {
+			response, _ := client.Disable(ctx, &api.DisableRequest{})
+			fmt.Println(response.Result)
+		},
+	}
+	rootCmd.AddCommand(disableCmd)
+
+	interfaceCmd := NewInterfaceCmd()
+	rootCmd.AddCommand(interfaceCmd)
+
 	databaseCmd := NewDatabaseCmd()
 	rootCmd.AddCommand(databaseCmd)
+
 	return rootCmd
 }

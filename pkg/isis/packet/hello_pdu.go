@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-type iihPdu struct {
+type IihPdu struct {
 	base pduBase
 
 	CircuitType    CircuitType
@@ -18,7 +18,7 @@ type iihPdu struct {
 	LocalCircuitId uint8  // P2P
 }
 
-func NewIihPdu(pduType PduType) (*iihPdu, error) {
+func NewIihPdu(pduType PduType) (*IihPdu, error) {
 	if pduType != PDU_TYPE_LEVEL1_LAN_IIHP &&
 		pduType != PDU_TYPE_LEVEL2_LAN_IIHP &&
 		pduType != PDU_TYPE_P2P_IIHP {
@@ -31,7 +31,7 @@ func NewIihPdu(pduType PduType) (*iihPdu, error) {
 	case PDU_TYPE_P2P_IIHP:
 		lengthIndicator = 14 + SYSTEM_ID_LENGTH
 	}
-	iih := iihPdu{
+	iih := IihPdu{
 		base: pduBase{
 			lengthIndicator: lengthIndicator,
 			pduType:         pduType,
@@ -43,11 +43,11 @@ func NewIihPdu(pduType PduType) (*iihPdu, error) {
 	return &iih, nil
 }
 
-func (iih *iihPdu) PduType() PduType {
+func (iih *IihPdu) PduType() PduType {
 	return iih.base.pduType
 }
 
-func (iih *iihPdu) String() string {
+func (iih *IihPdu) String() string {
 	var b bytes.Buffer
 	b.WriteString(iih.base.StringFixed())
 	fmt.Fprintf(&b, "CircuitType                     %s\n", iih.CircuitType.String())
@@ -73,7 +73,7 @@ func (iih *iihPdu) String() string {
 	return b.String()
 }
 
-func (iih *iihPdu) DecodeFromBytes(data []byte) error {
+func (iih *IihPdu) DecodeFromBytes(data []byte) error {
 	err := iih.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
@@ -104,12 +104,12 @@ func (iih *iihPdu) DecodeFromBytes(data []byte) error {
 		// LocalCircuitId
 		iih.LocalCircuitId = data[13+iih.base.idLength]
 	default:
-		return errors.New("iihPdu.DecodeFromBytes: pduType invalid")
+		return errors.New("IihPdu.DecodeFromBytes: pduType invalid")
 	}
 	return nil
 }
 
-func (iih *iihPdu) Serialize() ([]byte, error) {
+func (iih *IihPdu) Serialize() ([]byte, error) {
 	data, err := iih.base.Serialize()
 	if err != nil {
 		return data, err
@@ -136,16 +136,52 @@ func (iih *iihPdu) Serialize() ([]byte, error) {
 		// LocalCircuitId
 		data[13+iih.base.idLength] = iih.LocalCircuitId
 	default:
-		return nil, errors.New("iihPdu.Serialize: pduType invalid")
+		return nil, errors.New("IihPdu.Serialize: pduType invalid")
 	}
 	return data, nil
 }
 
-func (iih *iihPdu) SetAreaAddressesTlv(tlv *areaAddressesTlv) error {
+func (iih *IihPdu) BaseValid() bool {
+	return iih.base.valid()
+}
+
+func (iih *IihPdu) SourceId() []byte {
+	sourceId := make([]byte, len(iih.sourceId))
+	copy(sourceId, iih.sourceId)
+	return sourceId
+}
+
+func (iih *IihPdu) SetSourceId(sourceId []byte) error {
+	if len(sourceId) != SYSTEM_ID_LENGTH {
+		return errors.New("IihPdu.SetSourceId: sourceId length invalid")
+	}
+	sidtmp := make([]byte, len(sourceId))
+	copy(sidtmp, sourceId)
+	iih.sourceId = sourceId
+	return nil
+}
+
+func (iih *IihPdu) LanId() []byte {
+	lanId := make([]byte, len(iih.lanId))
+	copy(lanId, iih.lanId)
+	return lanId
+}
+
+func (iih *IihPdu) SetLanId(lanId []byte) error {
+	if len(lanId) != 6 {
+		return errors.New("IihPdu.SetLanId: lanId length invalid")
+	}
+	lidtmp := make([]byte, len(lanId))
+	copy(lidtmp, lanId)
+	iih.lanId = lanId
+	return nil
+}
+
+func (iih *IihPdu) SetAreaAddressesTlv(tlv *areaAddressesTlv) error {
 	return iih.base.SetTlv(tlv)
 }
 
-func (iih *iihPdu) AreaAddressesTlv() (*areaAddressesTlv, error) {
+func (iih *IihPdu) AreaAddressesTlv() (*areaAddressesTlv, error) {
 	tlvtmp, err := iih.base.Tlv(TLV_CODE_AREA_ADDRESSES)
 	if tlv, ok := tlvtmp.(*areaAddressesTlv); ok {
 		return tlv, err
@@ -153,15 +189,15 @@ func (iih *iihPdu) AreaAddressesTlv() (*areaAddressesTlv, error) {
 	return nil, err
 }
 
-func (iih *iihPdu) ClearAreaAddressesTlvs() error {
+func (iih *IihPdu) ClearAreaAddressesTlvs() error {
 	return iih.base.ClearTlvs(TLV_CODE_AREA_ADDRESSES)
 }
 
-func (iih *iihPdu) AddIsNeighboursHelloTlv(tlv *isNeighboursHelloTlv) error {
+func (iih *IihPdu) AddIsNeighboursHelloTlv(tlv *isNeighboursHelloTlv) error {
 	return iih.base.AddTlv(tlv)
 }
 
-func (iih *iihPdu) IsNeighboursHelloTlvs() ([]*isNeighboursHelloTlv, error) {
+func (iih *IihPdu) IsNeighboursHelloTlvs() ([]*isNeighboursHelloTlv, error) {
 	tlvs := make([]*isNeighboursHelloTlv, 0)
 	tlvstmp, err := iih.base.Tlvs(TLV_CODE_IS_NEIGHBOURS_HELLO)
 	if err != nil {
@@ -175,23 +211,23 @@ func (iih *iihPdu) IsNeighboursHelloTlvs() ([]*isNeighboursHelloTlv, error) {
 	return tlvs, nil
 }
 
-func (iih *iihPdu) ClearIsNeighboursHelloTlvs() error {
+func (iih *IihPdu) ClearIsNeighboursHelloTlvs() error {
 	return iih.base.ClearTlvs(TLV_CODE_IS_NEIGHBOURS_HELLO)
 }
 
-func (iih *iihPdu) AddPaddingTlv(tlv *paddingTlv) error {
+func (iih *IihPdu) AddPaddingTlv(tlv *paddingTlv) error {
 	return iih.base.AddTlv(tlv)
 }
 
-func (iih *iihPdu) ClearAddPaddingTlvs() error {
+func (iih *IihPdu) ClearAddPaddingTlvs() error {
 	return iih.base.ClearTlvs(TLV_CODE_PADDING)
 }
 
-func (iih *iihPdu) SetAuthInfoTlv(tlv *authInfoTlv) error {
+func (iih *IihPdu) SetAuthInfoTlv(tlv *authInfoTlv) error {
 	return iih.base.SetTlv(tlv)
 }
 
-func (iih *iihPdu) AuthInfoTlv() (*authInfoTlv, error) {
+func (iih *IihPdu) AuthInfoTlv() (*authInfoTlv, error) {
 	tlvtmp, err := iih.base.Tlv(TLV_CODE_AUTH_INFO)
 	if tlv, ok := tlvtmp.(*authInfoTlv); ok {
 		return tlv, err
@@ -199,15 +235,15 @@ func (iih *iihPdu) AuthInfoTlv() (*authInfoTlv, error) {
 	return nil, err
 }
 
-func (iih *iihPdu) ClearAuthInfoTlvs() error {
+func (iih *IihPdu) ClearAuthInfoTlvs() error {
 	return iih.base.ClearTlvs(TLV_CODE_AUTH_INFO)
 }
 
-func (iih *iihPdu) SetProtocolsSupportedTlv(tlv *protocolsSupportedTlv) error {
+func (iih *IihPdu) SetProtocolsSupportedTlv(tlv *protocolsSupportedTlv) error {
 	return iih.base.SetTlv(tlv)
 }
 
-func (iih *iihPdu) ProtocolsSupportedTlv() (*protocolsSupportedTlv, error) {
+func (iih *IihPdu) ProtocolsSupportedTlv() (*protocolsSupportedTlv, error) {
 	tlvtmp, err := iih.base.Tlv(TLV_CODE_PROTOCOLS_SUPPORTED)
 	if tlv, ok := tlvtmp.(*protocolsSupportedTlv); ok {
 		return tlv, err
@@ -215,15 +251,15 @@ func (iih *iihPdu) ProtocolsSupportedTlv() (*protocolsSupportedTlv, error) {
 	return nil, err
 }
 
-func (iih *iihPdu) ClearProtocolsSupportedTlvs() error {
+func (iih *IihPdu) ClearProtocolsSupportedTlvs() error {
 	return iih.base.ClearTlvs(TLV_CODE_PROTOCOLS_SUPPORTED)
 }
 
-func (iih *iihPdu) SetIpInterfaceAddressTlv(tlv *ipInterfaceAddressTlv) error {
+func (iih *IihPdu) SetIpInterfaceAddressTlv(tlv *ipInterfaceAddressTlv) error {
 	return iih.base.SetTlv(tlv)
 }
 
-func (iih *iihPdu) IpInterfaceAddressTlv() (*ipInterfaceAddressTlv, error) {
+func (iih *IihPdu) IpInterfaceAddressTlv() (*ipInterfaceAddressTlv, error) {
 	tlvtmp, err := iih.base.Tlv(TLV_CODE_IP_INTERFACE_ADDRESS)
 	if tlv, ok := tlvtmp.(*ipInterfaceAddressTlv); ok {
 		return tlv, err
@@ -231,15 +267,15 @@ func (iih *iihPdu) IpInterfaceAddressTlv() (*ipInterfaceAddressTlv, error) {
 	return nil, err
 }
 
-func (iih *iihPdu) ClearIpInterfaceAddressTlvs() error {
+func (iih *IihPdu) ClearIpInterfaceAddressTlvs() error {
 	return iih.base.ClearTlvs(TLV_CODE_IP_INTERFACE_ADDRESS)
 }
 
-func (iih *iihPdu) SetP2p3wayAdjacencyTlv(tlv *p2p3wayAdjacencyTlv) error {
+func (iih *IihPdu) SetP2p3wayAdjacencyTlv(tlv *p2p3wayAdjacencyTlv) error {
 	return iih.base.SetTlv(tlv)
 }
 
-func (iih *iihPdu) P2p3wayAdjacencyTlv() (*p2p3wayAdjacencyTlv, error) {
+func (iih *IihPdu) P2p3wayAdjacencyTlv() (*p2p3wayAdjacencyTlv, error) {
 	tlvtmp, err := iih.base.Tlv(TLV_CODE_P2P_3WAY_ADJ)
 	if tlv, ok := tlvtmp.(*p2p3wayAdjacencyTlv); ok {
 		return tlv, err
@@ -247,15 +283,15 @@ func (iih *iihPdu) P2p3wayAdjacencyTlv() (*p2p3wayAdjacencyTlv, error) {
 	return nil, err
 }
 
-func (iih *iihPdu) ClearP2p3wayAdjacencyTlvs() error {
+func (iih *IihPdu) ClearP2p3wayAdjacencyTlvs() error {
 	return iih.base.ClearTlvs(TLV_CODE_P2P_3WAY_ADJ)
 }
 
-func (iih *iihPdu) SetIpv6InterfaceAddressTlv(tlv *ipv6InterfaceAddressTlv) error {
+func (iih *IihPdu) SetIpv6InterfaceAddressTlv(tlv *ipv6InterfaceAddressTlv) error {
 	return iih.base.SetTlv(tlv)
 }
 
-func (iih *iihPdu) Ipv6InterfaceAddressTlv() (*ipv6InterfaceAddressTlv, error) {
+func (iih *IihPdu) Ipv6InterfaceAddressTlv() (*ipv6InterfaceAddressTlv, error) {
 	tlvtmp, err := iih.base.Tlv(TLV_CODE_IPV6_INTERFACE_ADDRESS)
 	if tlv, ok := tlvtmp.(*ipv6InterfaceAddressTlv); ok {
 		return tlv, err
@@ -263,6 +299,6 @@ func (iih *iihPdu) Ipv6InterfaceAddressTlv() (*ipv6InterfaceAddressTlv, error) {
 	return nil, err
 }
 
-func (iih *iihPdu) ClearIpv6InterfaceAddressTlvs() error {
+func (iih *IihPdu) ClearIpv6InterfaceAddressTlvs() error {
 	return iih.base.ClearTlvs(TLV_CODE_IPV6_INTERFACE_ADDRESS)
 }

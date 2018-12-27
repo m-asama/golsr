@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-type snPdu struct {
+type SnPdu struct {
 	base pduBase
 
 	sourceId   []byte
@@ -14,7 +14,7 @@ type snPdu struct {
 	endLspId   []byte // CSN
 }
 
-func NewSnPdu(pduType PduType) (*snPdu, error) {
+func NewSnPdu(pduType PduType) (*SnPdu, error) {
 	if pduType != PDU_TYPE_LEVEL1_CSNP &&
 		pduType != PDU_TYPE_LEVEL2_CSNP &&
 		pduType != PDU_TYPE_LEVEL1_PSNP &&
@@ -28,7 +28,7 @@ func NewSnPdu(pduType PduType) (*snPdu, error) {
 	case PDU_TYPE_LEVEL1_PSNP, PDU_TYPE_LEVEL2_PSNP:
 		lengthIndicator = 11 + SYSTEM_ID_LENGTH
 	}
-	sn := snPdu{
+	sn := SnPdu{
 		base: pduBase{
 			lengthIndicator: lengthIndicator,
 			pduType:         pduType,
@@ -41,11 +41,11 @@ func NewSnPdu(pduType PduType) (*snPdu, error) {
 	return &sn, nil
 }
 
-func (sn *snPdu) PduType() PduType {
+func (sn *SnPdu) PduType() PduType {
 	return sn.base.pduType
 }
 
-func (sn *snPdu) String() string {
+func (sn *SnPdu) String() string {
 	var b bytes.Buffer
 	b.WriteString(sn.base.StringFixed())
 	fmt.Fprintf(&b, "sourceId                        ")
@@ -70,7 +70,7 @@ func (sn *snPdu) String() string {
 	return b.String()
 }
 
-func (sn *snPdu) DecodeFromBytes(data []byte) error {
+func (sn *SnPdu) DecodeFromBytes(data []byte) error {
 	err := sn.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
@@ -96,7 +96,7 @@ func (sn *snPdu) DecodeFromBytes(data []byte) error {
 	return nil
 }
 
-func (sn *snPdu) Serialize() ([]byte, error) {
+func (sn *SnPdu) Serialize() ([]byte, error) {
 	data, err := sn.base.Serialize()
 	if err != nil {
 		return data, err
@@ -116,11 +116,51 @@ func (sn *snPdu) Serialize() ([]byte, error) {
 	return data, nil
 }
 
-func (sn *snPdu) AddLspEntriesTlv(tlv *lspEntriesTlv) error {
+func (sn *SnPdu) BaseValid() bool {
+	return sn.base.valid()
+}
+
+func (sn *SnPdu) SourceId() []byte {
+	sourceId := make([]byte, len(sn.sourceId))
+	copy(sourceId, sn.sourceId)
+	return sourceId
+}
+
+func (sn *SnPdu) SetSourceId(sourceId []byte) error {
+	if len(sourceId) != SYSTEM_ID_LENGTH {
+		return errors.New("IihPdu.SetSourceId: sourceId length invalid")
+	}
+	sidtmp := make([]byte, len(sourceId))
+	copy(sidtmp, sourceId)
+	sn.sourceId = sourceId
+	return nil
+}
+
+func (sn *SnPdu) SetStartLspId(startLspId []byte) error {
+	if len(startLspId) != LSP_ID_LENGTH {
+		return errors.New("IihPdu.SetStartLspId: LSP ID length invalid")
+	}
+	lidtmp := make([]byte, len(startLspId))
+	copy(lidtmp, startLspId)
+	sn.startLspId = startLspId
+	return nil
+}
+
+func (sn *SnPdu) SetEndLspId(endLspId []byte) error {
+	if len(endLspId) != LSP_ID_LENGTH {
+		return errors.New("IihPdu.SetEndLspId: LSP ID length invalid")
+	}
+	lidtmp := make([]byte, len(endLspId))
+	copy(lidtmp, endLspId)
+	sn.endLspId = endLspId
+	return nil
+}
+
+func (sn *SnPdu) AddLspEntriesTlv(tlv *lspEntriesTlv) error {
 	return sn.base.AddTlv(tlv)
 }
 
-func (sn *snPdu) LspEntriesTlvs() ([]*lspEntriesTlv, error) {
+func (sn *SnPdu) LspEntriesTlvs() ([]*lspEntriesTlv, error) {
 	tlvs := make([]*lspEntriesTlv, 0)
 	tlvstmp, err := sn.base.Tlvs(TLV_CODE_LSP_ENTRIES)
 	if err != nil {
@@ -134,15 +174,15 @@ func (sn *snPdu) LspEntriesTlvs() ([]*lspEntriesTlv, error) {
 	return tlvs, nil
 }
 
-func (sn *snPdu) ClearLspEntriesTlvs() error {
+func (sn *SnPdu) ClearLspEntriesTlvs() error {
 	return sn.base.ClearTlvs(TLV_CODE_LSP_ENTRIES)
 }
 
-func (sn *snPdu) SetAuthInfoTlv(tlv *authInfoTlv) error {
+func (sn *SnPdu) SetAuthInfoTlv(tlv *authInfoTlv) error {
 	return sn.base.SetTlv(tlv)
 }
 
-func (sn *snPdu) AuthInfoTlv() (*authInfoTlv, error) {
+func (sn *SnPdu) AuthInfoTlv() (*authInfoTlv, error) {
 	tlvtmp, err := sn.base.Tlv(TLV_CODE_AUTH_INFO)
 	if tlv, ok := tlvtmp.(*authInfoTlv); ok {
 		return tlv, err
@@ -150,6 +190,6 @@ func (sn *snPdu) AuthInfoTlv() (*authInfoTlv, error) {
 	return nil, err
 }
 
-func (sn *snPdu) ClearAuthInfoTlvs() error {
+func (sn *SnPdu) ClearAuthInfoTlvs() error {
 	return sn.base.ClearTlvs(TLV_CODE_AUTH_INFO)
 }

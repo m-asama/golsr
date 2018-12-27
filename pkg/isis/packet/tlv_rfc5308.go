@@ -286,6 +286,15 @@ func NewIpv6InterfaceAddressTlv() (*ipv6InterfaceAddressTlv, error) {
 	return &tlv, nil
 }
 
+func (tlv *ipv6InterfaceAddressTlv) Ipv6Addresses() [][4]uint32 {
+	ipv6InterfaceAddresses := make([][4]uint32, 0)
+	for _, iatmp := range tlv.ipv6Addresses {
+		ipv6InterfaceAddress := [4]uint32{iatmp[0], iatmp[1], iatmp[2], iatmp[3]}
+		ipv6InterfaceAddresses = append(ipv6InterfaceAddresses, ipv6InterfaceAddress)
+	}
+	return ipv6InterfaceAddresses
+}
+
 func (tlv *ipv6InterfaceAddressTlv) AddIpv6Address(ipv6Address [4]uint32) error {
 	for _, iatmp := range tlv.ipv6Addresses {
 		if ipv6Address[0] == iatmp[0] &&

@@ -35,6 +35,17 @@ func (base *pduBase) init() {
 	base.tlvs = make([]IsisTlv, 0)
 }
 
+func (base *pduBase) valid() bool {
+	if base.irpDiscriminator != 0x83 ||
+		base.verProtoIdExtension != 0x01 ||
+		base.idLength != SYSTEM_ID_LENGTH ||
+		base.version != 0x01 ||
+		base.maximumAreaAddress != 0x03 {
+		return false
+	}
+	return true
+}
+
 func (base *pduBase) StringFixed() string {
 	var b bytes.Buffer
 	fmt.Fprintf(&b, "irpDiscriminator                0x%02x\n", base.irpDiscriminator)
@@ -94,7 +105,8 @@ func (base *pduBase) DecodeFromBytes(data []byte) error {
 		base.pduLength = binary.BigEndian.Uint16(data[8:10])
 	}
 	if len(data) != int(base.pduLength) {
-		return errors.New("pduBase.DecodeFromBytes: data length mismatch")
+		s := fmt.Sprintf("pduBase.DecodeFromBytes: data length mismatch %d %d", len(data), int(base.pduLength))
+		return errors.New(s)
 	}
 
 	// TLV

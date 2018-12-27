@@ -37,8 +37,10 @@ func (base *tlvBase) DecodeFromBytes(data []byte) error {
 	}
 	base.code = TlvCode(data[0])
 	base.length = data[1]
-	if len(data) != int(base.length+2) {
-		return errors.New("tlvBase.DecodeFromBytes: data length mismatch")
+	if len(data) != int(base.length)+2 {
+		s := fmt.Sprintf("tlvBase.DecodeFromBytes: data length mismatch %d %d %d",
+			uint8(data[0]), len(data), int(base.length)+2)
+		return errors.New(s)
 	}
 	base.value = make([]byte, len(data)-2)
 	copy(base.value, data[2:])
@@ -49,7 +51,7 @@ func (base *tlvBase) Serialize() ([]byte, error) {
 	if len(base.value) != int(base.length) {
 		return nil, errors.New("tlvBase.Serialize: value length mismatch")
 	}
-	data := make([]byte, base.length+2)
+	data := make([]byte, int(base.length)+2)
 	data[0] = uint8(base.code)
 	data[1] = base.length
 	copy(data[2:], base.value)

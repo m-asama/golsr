@@ -223,6 +223,14 @@ func NewProtocolsSupportedTlv() (*protocolsSupportedTlv, error) {
 	return &tlv, nil
 }
 
+func (tlv *protocolsSupportedTlv) ProtocolsSupported() []NlpId {
+	nlpIds := make([]NlpId, 0)
+	for _, nlpId := range tlv.nlpIds {
+		nlpIds = append(nlpIds, nlpId)
+	}
+	return nlpIds
+}
+
 func (tlv *protocolsSupportedTlv) AddNlpId(nlpId NlpId) error {
 	for _, nitmp := range tlv.nlpIds {
 		if nlpId == nitmp {
@@ -582,7 +590,7 @@ func (tlv *interDomainRoutingProtoInfoTlv) Serialize() ([]byte, error) {
 
 type ipInterfaceAddressTlv struct {
 	base        tlvBase
-	IpAddresses []uint32
+	ipAddresses []uint32
 }
 
 func NewIpInterfaceAddressTlv() (*ipInterfaceAddressTlv, error) {
@@ -592,34 +600,42 @@ func NewIpInterfaceAddressTlv() (*ipInterfaceAddressTlv, error) {
 		},
 	}
 	tlv.base.init()
-	tlv.IpAddresses = make([]uint32, 0)
+	tlv.ipAddresses = make([]uint32, 0)
 	return &tlv, nil
 }
 
+func (tlv *ipInterfaceAddressTlv) IpAddresses() []uint32 {
+	ipAddresses := make([]uint32, 0)
+	for _, iatmp := range tlv.ipAddresses {
+		ipAddresses = append(ipAddresses, iatmp)
+	}
+	return ipAddresses
+}
+
 func (tlv *ipInterfaceAddressTlv) AddIpAddress(ipAddress uint32) error {
-	for _, iatmp := range tlv.IpAddresses {
+	for _, iatmp := range tlv.ipAddresses {
 		if ipAddress == iatmp {
 			return nil
 		}
 	}
-	length := len(tlv.IpAddresses)
+	length := len(tlv.ipAddresses)
 	if length+4 > 255 {
 		return errors.New("ipInterfaceAddressTlv.AddIpAddress: size over")
 	}
-	tlv.IpAddresses = append(tlv.IpAddresses, ipAddress)
+	tlv.ipAddresses = append(tlv.ipAddresses, ipAddress)
 	tlv.base.length = uint8(length + 4)
 	return nil
 }
 
 func (tlv *ipInterfaceAddressTlv) RemoveIpAddress(ipAddress uint32) error {
 	ipAddresses := make([]uint32, 0)
-	for _, iatmp := range tlv.IpAddresses {
+	for _, iatmp := range tlv.ipAddresses {
 		if ipAddress != iatmp {
 			ipAddresses = append(ipAddresses, iatmp)
 		}
 	}
-	tlv.IpAddresses = ipAddresses
-	tlv.base.length = uint8(len(tlv.IpAddresses) * 4)
+	tlv.ipAddresses = ipAddresses
+	tlv.base.length = uint8(len(tlv.ipAddresses) * 4)
 	return nil
 }
 
@@ -630,7 +646,7 @@ func (tlv *ipInterfaceAddressTlv) TlvCode() TlvCode {
 func (tlv *ipInterfaceAddressTlv) String() string {
 	var b bytes.Buffer
 	b.WriteString(tlv.base.String())
-	for _, iatmp := range tlv.IpAddresses {
+	for _, iatmp := range tlv.ipAddresses {
 		fmt.Fprintf(&b, "    IPAddress                   0x%08x\n", iatmp)
 	}
 	return b.String()
@@ -653,15 +669,15 @@ func (tlv *ipInterfaceAddressTlv) DecodeFromBytes(data []byte) error {
 	if consumed != len(tlv.base.value) {
 		return errors.New("ipInterfaceAddressTlv.DecodeFromBytes: value length mismatch")
 	}
-	tlv.IpAddresses = ipAddresses
+	tlv.ipAddresses = ipAddresses
 	return nil
 }
 
 func (tlv *ipInterfaceAddressTlv) Serialize() ([]byte, error) {
-	length := len(tlv.IpAddresses) * 4
+	length := len(tlv.ipAddresses) * 4
 	value := make([]byte, length)
 	i := 0
-	for _, iatmp := range tlv.IpAddresses {
+	for _, iatmp := range tlv.ipAddresses {
 		binary.BigEndian.PutUint32(value[i:i+4], iatmp)
 		i += 4
 	}
