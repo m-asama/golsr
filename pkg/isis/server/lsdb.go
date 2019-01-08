@@ -2,25 +2,41 @@ package server
 
 import (
 	"bytes"
+	"errors"
+	"sort"
 	"time"
 
-	_ "github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/m-asama/golsr/pkg/isis/packet"
 )
 
 type Ls struct {
-	pdu    *packet.LsPdu
-	origin bool
-	//srmFlags  []int
-	//ssnFlags  []int
+	pdu       *packet.LsPdu
+	origin    bool
 	srmFlags  map[int]*time.Time
 	ssnFlags  map[int]*time.Time
 	generated *time.Time
 	expired   *time.Time
 }
 
+type Lss []*Ls
+
+func (lss Lss) Len() int {
+	return len(lss)
+}
+
+func (lss Lss) Swap(i, j int) {
+	lss[i], lss[j] = lss[j], lss[i]
+}
+
+func (lss Lss) Less(i, j int) bool {
+	return bytes.Compare(lss[i].pdu.LspId(), lss[j].pdu.LspId()) < 0
+}
+
 func NewLs(pdu *packet.LsPdu, origin bool, generated *time.Time) (*Ls, error) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	ls := Ls{
 		pdu:       pdu,
 		origin:    origin,
@@ -31,77 +47,66 @@ func NewLs(pdu *packet.LsPdu, origin bool, generated *time.Time) (*Ls, error) {
 	return &ls, nil
 }
 
-func (isis *IsisServer) insertLevel1Lsp(lsp *packet.LsPdu, origin bool, generated *time.Time) *Ls {
-	if lsp.PduType() != packet.PDU_TYPE_LEVEL1_LSP {
-		return nil
+func (isis *IsisServer) lspLevel(lsp *packet.LsPdu) (IsisLevel, error) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
+	if lsp == nil {
+		return 0, errors.New("lsp invalid")
 	}
-	isis.lock.Lock()
-	defer isis.lock.Unlock()
-	level1LsDb := make([]*Ls, 0)
-	for _, lstmp := range isis.level1LsDb {
-		if !bytes.Equal(lstmp.pdu.LspId(), lsp.LspId()) {
-			level1LsDb = append(level1LsDb, lstmp)
-		}
+	switch lsp.PduType() {
+	case packet.PDU_TYPE_LEVEL1_LSP:
+		return ISIS_LEVEL_1, nil
+	case packet.PDU_TYPE_LEVEL2_LSP:
+		return ISIS_LEVEL_2, nil
 	}
-	ls, _ := NewLs(lsp, origin, generated)
-	level1LsDb = append(level1LsDb, ls)
-	isis.level1LsDb = level1LsDb
-	return ls
-}
-
-func (isis *IsisServer) insertLevel2Lsp(lsp *packet.LsPdu, origin bool, generated *time.Time) *Ls {
-	if lsp.PduType() != packet.PDU_TYPE_LEVEL2_LSP {
-		return nil
-	}
-	isis.lock.Lock()
-	defer isis.lock.Unlock()
-	level2LsDb := make([]*Ls, 0)
-	for _, lstmp := range isis.level2LsDb {
-		if !bytes.Equal(lstmp.pdu.LspId(), lsp.LspId()) {
-			level2LsDb = append(level2LsDb, lstmp)
-		}
-	}
-	ls, _ := NewLs(lsp, origin, generated)
-	level2LsDb = append(level2LsDb, ls)
-	isis.level2LsDb = level2LsDb
-	return ls
+	return 0, errors.New("level invalid")
 }
 
 func (isis *IsisServer) insertLsp(lsp *packet.LsPdu, origin bool, generated *time.Time) *Ls {
-	switch lsp.PduType() {
-	case packet.PDU_TYPE_LEVEL1_LSP:
-		return isis.insertLevel1Lsp(lsp, origin, generated)
-	case packet.PDU_TYPE_LEVEL2_LSP:
-		return isis.insertLevel2Lsp(lsp, origin, generated)
+	log.Debugf("enter: lspid=%x origin=%s generated=%s", lsp.LspId(), origin, generated)
+	defer log.Debugf("exit: lspid=%x origin=%s generated=%s", lsp.LspId(), origin, generated)
+	level, err := isis.lspLevel(lsp)
+	if err != nil {
+		return nil
 	}
-	return nil
+	isis.lock.Lock()
+	defer isis.lock.Unlock()
+	lsDb := make([]*Ls, 0)
+	for _, lstmp := range isis.lsDb[level] {
+		if !bytes.Equal(lstmp.pdu.LspId(), lsp.LspId()) {
+			lsDb = append(lsDb, lstmp)
+		}
+	}
+	ls, _ := NewLs(lsp, origin, generated)
+	lsDb = append(lsDb, ls)
+	isis.lsDb[level] = lsDb
+	return ls
 }
 
 func (isis *IsisServer) deleteLsp(ls *Ls) {
+	log.Debugf("enter: lspid=%x", ls.pdu.LspId())
+	defer log.Debugf("exit: lspid=%x", ls.pdu.LspId())
+	level, err := isis.lspLevel(ls.pdu)
+	if err != nil {
+		return
+	}
 	isis.lock.Lock()
 	defer isis.lock.Unlock()
-	//
-	level1LsDb := make([]*Ls, 0)
-	for _, lstmp := range isis.level1LsDb {
+	lsDb := make([]*Ls, 0)
+	for _, lstmp := range isis.lsDb[level] {
 		if lstmp != ls {
-			level1LsDb = append(level1LsDb, lstmp)
+			lsDb = append(lsDb, lstmp)
 		}
 	}
-	isis.level1LsDb = level1LsDb
-	//
-	level2LsDb := make([]*Ls, 0)
-	for _, lstmp := range isis.level2LsDb {
-		if lstmp != ls {
-			level2LsDb = append(level2LsDb, lstmp)
-		}
-	}
-	isis.level2LsDb = level2LsDb
+	isis.lsDb[level] = lsDb
 }
 
-func (isis *IsisServer) lookupLevel1Lsp(lspId []byte) *Ls {
+func (isis *IsisServer) lookupLsp(level IsisLevel, lspId []byte) *Ls {
+	log.Debugf("enter: level=%s lspid=%x", level, lspId)
+	defer log.Debugf("exit: level=%s lspid=%x", level, lspId)
 	isis.lock.Lock()
 	defer isis.lock.Unlock()
-	for _, lstmp := range isis.level1LsDb {
+	for _, lstmp := range isis.lsDb[level] {
 		if bytes.Equal(lstmp.pdu.LspId(), lspId) {
 			return lstmp
 		}
@@ -109,23 +114,20 @@ func (isis *IsisServer) lookupLevel1Lsp(lspId []byte) *Ls {
 	return nil
 }
 
-func (isis *IsisServer) lookupLevel2Lsp(lspId []byte) *Ls {
+func (isis *IsisServer) originLss(level IsisLevel, nodeId uint8) []*Ls {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	isis.lock.Lock()
 	defer isis.lock.Unlock()
-	for _, lstmp := range isis.level2LsDb {
-		if bytes.Equal(lstmp.pdu.LspId(), lspId) {
-			return lstmp
+	lss := make([]*Ls, 0)
+	for _, lstmp := range isis.lsDb[level] {
+		if !lstmp.origin ||
+			!bytes.Equal(lstmp.pdu.LspId()[0:packet.SYSTEM_ID_LENGTH], isis.systemId) ||
+			lstmp.pdu.LspId()[packet.NEIGHBOUR_ID_LENGTH-1] != nodeId {
+			continue
 		}
+		lss = append(lss, lstmp)
 	}
-	return nil
-}
-
-func (isis *IsisServer) lookupLsp(isType packet.IsType, lspId []byte) *Ls {
-	switch isType {
-	case packet.IS_TYPE_LEVEL1_IS:
-		return isis.lookupLevel1Lsp(lspId)
-	case packet.IS_TYPE_LEVEL2_IS:
-		return isis.lookupLevel2Lsp(lspId)
-	}
-	return nil
+	sort.Sort(Lss(lss))
+	return lss
 }

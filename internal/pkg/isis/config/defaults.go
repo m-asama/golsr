@@ -4,6 +4,52 @@ import (
 	"github.com/m-asama/golsr/internal/pkg/kernel"
 )
 
+func (config *Interface) InterfaceAddressFamiliesDefaults(isisConfig *IsisConfig) {
+}
+
+func (config *IsisConfig) AddressFamiliesDefaults() {
+	var ipv4 *bool
+	var ipv6 *bool
+	for _, af := range config.AddressFamilies {
+		if *af.Config.AddressFamily == "ipv4" {
+			if af.Config.Enable == nil {
+				enable := true
+				af.Config.Enable = &enable
+			}
+			ipv4 = af.Config.Enable
+		}
+		if *af.Config.AddressFamily == "ipv6" {
+			if af.Config.Enable == nil {
+				enable := true
+				af.Config.Enable = &enable
+			}
+			ipv6 = af.Config.Enable
+		}
+	}
+	if ipv4 == nil {
+		afstr := "ipv4"
+		enable := true
+		af := &AddressFamily{
+			Config: AddressFamilyConfig{
+				AddressFamily: &afstr,
+				Enable:        &enable,
+			},
+		}
+		config.AddressFamilies = append(config.AddressFamilies, af)
+	}
+	if ipv6 == nil {
+		afstr := "ipv6"
+		enable := true
+		af := &AddressFamily{
+			Config: AddressFamilyConfig{
+				AddressFamily: &afstr,
+				Enable:        &enable,
+			},
+		}
+		config.AddressFamilies = append(config.AddressFamilies, af)
+	}
+}
+
 func (config *NodeTag) fillDefaults() {
 }
 
@@ -14,6 +60,9 @@ func (config *Topology) fillDefaults() {
 	for _, nodeTag := range config.NodeTags {
 		nodeTag.fillDefaults()
 	}
+}
+
+func (config *InterfaceAddressFamily) fillDefaults() {
 }
 
 func (config *InterfaceTopology) fillDefaults() {
@@ -135,6 +184,7 @@ func (config *Interface) fillDefaults(isisConfig *IsisConfig) {
 	}
 	// bfd
 	// address-families
+	config.InterfaceAddressFamiliesDefaults(isisConfig)
 	for _, af := range config.AddressFamilies {
 		af.fillDefaults()
 	}
@@ -207,6 +257,14 @@ func (config *IsisConfig) fillDefaults() {
 		value := "wide-only"
 		config.MetricType.Config.Value = &value
 	}
+	if config.MetricType.Level1.Config.Value == nil {
+		value := *config.MetricType.Config.Value
+		config.MetricType.Level1.Config.Value = &value
+	}
+	if config.MetricType.Level2.Config.Value == nil {
+		value := *config.MetricType.Config.Value
+		config.MetricType.Level2.Config.Value = &value
+	}
 	// default-metric
 	if config.DefaultMetric.Config.Value == nil {
 		value := uint32(10)
@@ -215,6 +273,7 @@ func (config *IsisConfig) fillDefaults() {
 	// auto-cost
 	// authentication
 	// address-families
+	config.AddressFamiliesDefaults()
 	for _, af := range config.AddressFamilies {
 		af.fillDefaults()
 	}

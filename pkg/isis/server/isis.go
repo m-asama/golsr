@@ -17,10 +17,76 @@ import (
 type IsisLevel uint8
 
 const (
-	_ IsisLevel = iota
-	ISIS_LEVEL_1
+	ISIS_LEVEL_1 IsisLevel = iota
 	ISIS_LEVEL_2
+	ISIS_LEVEL_NUM
 )
+
+var ISIS_LEVEL_ALL = []IsisLevel{ISIS_LEVEL_1, ISIS_LEVEL_2}
+
+func (level *IsisLevel) pduTypeLsp() packet.PduType {
+	switch *level {
+	case ISIS_LEVEL_1:
+		return packet.PDU_TYPE_LEVEL1_LSP
+	case ISIS_LEVEL_2:
+		return packet.PDU_TYPE_LEVEL2_LSP
+	}
+	log.Infof("")
+	panic("")
+	return packet.PduType(0)
+}
+
+func (level *IsisLevel) pduTypeCsnp() packet.PduType {
+	switch *level {
+	case ISIS_LEVEL_1:
+		return packet.PDU_TYPE_LEVEL1_CSNP
+	case ISIS_LEVEL_2:
+		return packet.PDU_TYPE_LEVEL2_CSNP
+	}
+	log.Infof("")
+	panic("")
+	return packet.PduType(0)
+}
+
+func (level *IsisLevel) pduTypePsnp() packet.PduType {
+	switch *level {
+	case ISIS_LEVEL_1:
+		return packet.PDU_TYPE_LEVEL1_PSNP
+	case ISIS_LEVEL_2:
+		return packet.PDU_TYPE_LEVEL2_PSNP
+	}
+	log.Infof("")
+	panic("")
+	return packet.PduType(0)
+}
+
+func (level *IsisLevel) isType() packet.IsType {
+	switch *level {
+	case ISIS_LEVEL_1:
+		return packet.IS_TYPE_LEVEL1_IS
+	case ISIS_LEVEL_2:
+		return packet.IS_TYPE_LEVEL2_IS
+	}
+	log.Infof("")
+	panic("")
+	return packet.IsType(0)
+}
+
+func pduType2level(pduType packet.PduType) IsisLevel {
+	switch pduType {
+	case packet.PDU_TYPE_LEVEL1_LAN_IIHP, packet.PDU_TYPE_LEVEL1_LSP:
+		return ISIS_LEVEL_1
+	case packet.PDU_TYPE_LEVEL1_CSNP, packet.PDU_TYPE_LEVEL1_PSNP:
+		return ISIS_LEVEL_1
+	case packet.PDU_TYPE_LEVEL2_LAN_IIHP, packet.PDU_TYPE_LEVEL2_LSP:
+		return ISIS_LEVEL_2
+	case packet.PDU_TYPE_LEVEL2_CSNP, packet.PDU_TYPE_LEVEL2_PSNP:
+		return ISIS_LEVEL_2
+	}
+	log.Infof("")
+	panic("")
+	return IsisLevel(ISIS_LEVEL_NUM)
+}
 
 type IsisChMsg uint8
 
@@ -30,26 +96,6 @@ const (
 	ISIS_CH_MSG_DISABLE
 	ISIS_CH_MSG_EXIT
 )
-
-type IsReachability struct {
-	neighborId []byte
-	metric     uint32
-	lspNumber  int
-}
-
-type Ipv4Reachability struct {
-	ipv4Prefix   uint32
-	prefixLength uint8
-	metric       uint32
-	lspNumber    int
-}
-
-type Ipv6Reachability struct {
-	ipv6Prefix   [4]uint32
-	prefixLength uint8
-	metric       uint32
-	lspNumber    int
-}
 
 type IsisServer struct {
 	isisCh     chan IsisChMsg
@@ -61,68 +107,72 @@ type IsisServer struct {
 	config     *config.IsisConfig
 	kernel     *kernel.KernelStatus
 
-	systemId                 []byte
-	areaAddresses            [][]byte
-	level1IsReachabilities   []*IsReachability
-	level2IsReachabilities   []*IsReachability
-	level1Ipv4Reachabilities []*Ipv4Reachability
-	level2Ipv4Reachabilities []*Ipv4Reachability
-	level1Ipv6Reachabilities []*Ipv6Reachability
-	level2Ipv6Reachabilities []*Ipv6Reachability
+	systemId           []byte
+	areaAddresses      [][]byte
+	isReachabilities   [ISIS_LEVEL_NUM][]*IsReachability
+	ipv4Reachabilities [ISIS_LEVEL_NUM][]*Ipv4Reachability
+	ipv6Reachabilities [ISIS_LEVEL_NUM][]*Ipv6Reachability
 
-	level1LsDb []*Ls
-	level2LsDb []*Ls
-	circuitDb  map[int]*Circuit
+	lsDb      [ISIS_LEVEL_NUM][]*Ls
+	circuitDb map[int]*Circuit
 
 	lock sync.RWMutex
 }
 
 func NewIsisServer(configFile, configType string) *IsisServer {
-	s := &IsisServer{
-		isisCh:                   make(chan IsisChMsg),
-		decisionCh:               make(chan *DecisionChMsg, 8),
-		updateCh:                 make(chan *UpdateChMsg, 8),
-		configFile:               configFile,
-		configType:               configType,
-		config:                   config.NewIsisConfig(),
-		kernel:                   kernel.NewKernelStatus(),
-		systemId:                 make([]byte, packet.SYSTEM_ID_LENGTH),
-		areaAddresses:            make([][]byte, 0),
-		level1IsReachabilities:   make([]*IsReachability, 0),
-		level2IsReachabilities:   make([]*IsReachability, 0),
-		level1Ipv4Reachabilities: make([]*Ipv4Reachability, 0),
-		level2Ipv4Reachabilities: make([]*Ipv4Reachability, 0),
-		level1Ipv6Reachabilities: make([]*Ipv6Reachability, 0),
-		level2Ipv6Reachabilities: make([]*Ipv6Reachability, 0),
-		level1LsDb:               make([]*Ls, 0),
-		level2LsDb:               make([]*Ls, 0),
-		circuitDb:                make(map[int]*Circuit),
+	log.Debugf("enter")
+	defer log.Debugf("exit")
+	isis := &IsisServer{
+		isisCh:        make(chan IsisChMsg),
+		decisionCh:    make(chan *DecisionChMsg, 8),
+		updateCh:      make(chan *UpdateChMsg, 8),
+		configFile:    configFile,
+		configType:    configType,
+		config:        config.NewIsisConfig(),
+		kernel:        kernel.NewKernelStatus(),
+		systemId:      make([]byte, packet.SYSTEM_ID_LENGTH),
+		areaAddresses: make([][]byte, 0),
+		circuitDb:     make(map[int]*Circuit),
 	}
-	return s
+	for _, level := range ISIS_LEVEL_ALL {
+		isis.isReachabilities[level] = make([]*IsReachability, 0)
+		isis.ipv4Reachabilities[level] = make([]*Ipv4Reachability, 0)
+		isis.ipv6Reachabilities[level] = make([]*Ipv6Reachability, 0)
+		isis.lsDb[level] = make([]*Ls, 0)
+	}
+	return isis
 }
 
 func (isis *IsisServer) Serve(wg *sync.WaitGroup) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	defer wg.Done()
 
 	log.Debugf("")
 
+	var updateWg sync.WaitGroup
+
 	sigCh := make(chan os.Signal, 1)
 	configCh := make(chan *config.IsisConfig)
 	if isis.configFile != "" {
-		go config.ReadConfigfileServe(isis.configFile, isis.configType, configCh)
+		updateWg.Add(1)
+		go config.Serve(isis.configFile, isis.configType, configCh)
 	} else {
 		signal.Notify(sigCh, syscall.SIGHUP)
 	}
 
 	kernelCh := make(chan *kernel.KernelStatus)
+	updateWg.Add(1)
 	go kernel.Serve(kernelCh)
 
 	periodicCh := make(chan struct{})
 	go isis.periodic(periodicCh)
 
 	go isis.decisionProcess()
-	go isis.updateProcess()
+	go isis.updateProcess(&updateWg)
 
+	configReady := false
+	kernelReady := false
 	for {
 		select {
 		case <-sigCh:
@@ -142,26 +192,37 @@ func (isis *IsisServer) Serve(wg *sync.WaitGroup) {
 			}
 		case c := <-configCh:
 			isis.configChanged(c)
+			if !configReady {
+				updateWg.Done()
+				configReady = true
+			}
 		case k := <-kernelCh:
 			isis.kernelChanged(k)
+			if !kernelReady {
+				updateWg.Done()
+				kernelReady = true
+			}
 		}
 	}
 EXIT:
 }
 
 func (isis *IsisServer) Exit() {
-	log.Debugf("")
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	isis.isisCh <- ISIS_CH_MSG_EXIT
 }
 
 func (isis *IsisServer) SetEnable() {
-	log.Debugf("")
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	*isis.config.Config.Enable = true
 	isis.isisCh <- ISIS_CH_MSG_ENABLE
 }
 
 func (isis *IsisServer) SetDisable() {
-	log.Debugf("")
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	*isis.config.Config.Enable = false
 	isis.isisCh <- ISIS_CH_MSG_DISABLE
 }
@@ -204,6 +265,26 @@ func (isis *IsisServer) level2Only() bool {
 
 func (isis *IsisServer) levelAll() bool {
 	return *isis.config.Config.LevelType == "level-all"
+}
+
+func (isis *IsisServer) ipv4Enable() bool {
+	enable := false
+	for _, af := range isis.config.AddressFamilies {
+		if *af.Config.AddressFamily == "ipv4" && *af.Config.Enable == true {
+			enable = true
+		}
+	}
+	return enable
+}
+
+func (isis *IsisServer) ipv6Enable() bool {
+	enable := false
+	for _, af := range isis.config.AddressFamilies {
+		if *af.Config.AddressFamily == "ipv6" && *af.Config.Enable == true {
+			enable = true
+		}
+	}
+	return enable
 }
 
 func (isis *IsisServer) lspMtu() uint16 {
@@ -251,6 +332,8 @@ func (isis *IsisServer) both(level IsisLevel) bool {
 }
 
 func (isis *IsisServer) matchAreaAddresses(areaAddresses [][]byte) bool {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	if areaAddresses == nil {
 		return false
 	}
@@ -265,6 +348,8 @@ func (isis *IsisServer) matchAreaAddresses(areaAddresses [][]byte) bool {
 }
 
 func (isis *IsisServer) getIfKernelByName(name string) *kernel.Interface {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	for _, ifKernel := range isis.kernel.Interfaces {
 		if ifKernel.Name == name {
 			return ifKernel
@@ -274,6 +359,8 @@ func (isis *IsisServer) getIfKernelByName(name string) *kernel.Interface {
 }
 
 func (isis *IsisServer) findCircuitByIfIndex(ifIndex int) *Circuit {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	for _, circuit := range isis.circuitDb {
 		if circuit.ifKernel.IfIndex == ifIndex {
 			return circuit
@@ -283,6 +370,8 @@ func (isis *IsisServer) findCircuitByIfIndex(ifIndex int) *Circuit {
 }
 
 func (isis *IsisServer) addCircuit(name string, ifConfig *config.Interface) {
+	log.Debugf("enter: %s", name)
+	defer log.Debugf("exit: %s", name)
 	ifKernel := isis.getIfKernelByName(name)
 	if ifKernel == nil {
 		log.Infof("not such interface %s", name)
@@ -299,6 +388,8 @@ func (isis *IsisServer) addCircuit(name string, ifConfig *config.Interface) {
 }
 
 func (isis *IsisServer) removeCircuit(name string) {
+	log.Debugf("enter: %s", name)
+	defer log.Debugf("exit: %s", name)
 	var circuit *Circuit
 	for _, tmp := range isis.circuitDb {
 		if *tmp.ifConfig.Config.Name == name {
@@ -314,7 +405,8 @@ func (isis *IsisServer) removeCircuit(name string) {
 }
 
 func (isis *IsisServer) configChanged(newConfig *config.IsisConfig) {
-	log.Debug("")
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	//s.fillConfigDefaults(newConfig)
 	added := make(map[string]*config.Interface)
 	removed := make(map[string]*config.Interface)
@@ -350,7 +442,8 @@ func (isis *IsisServer) configChanged(newConfig *config.IsisConfig) {
 }
 
 func (isis *IsisServer) kernelChanged(newKernel *kernel.KernelStatus) {
-	log.Debug("")
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	removed := make(map[string]*config.Interface)
 	for _, iface := range isis.config.Interfaces {
 		removed[*iface.Config.Name] = iface

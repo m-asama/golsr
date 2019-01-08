@@ -22,14 +22,14 @@ func isisSocket(iface *kernel.Interface) (int, error) {
 
 	if iface == nil {
 		s := "iface == nil"
-		log.Info(s)
+		log.Infof(s)
 		return -1, errors.New(s)
 	}
 
 	fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_DGRAM, int(htons(uint16(syscall.ETH_P_ALL))))
 	if err != nil {
 		s := "syscall.Socket failed"
-		log.Info(s)
+		log.Infof(s)
 		return -1, errors.New(s)
 	}
 
@@ -47,7 +47,7 @@ func isisSocket(iface *kernel.Interface) (int, error) {
 	SetsockoptAttachFilter(fd, syscall.SOL_SOCKET, syscall.SO_ATTACH_FILTER, &bpf)
 	if err != nil {
 		s := "SetsockoptAttachFilter failed"
-		log.Info(s)
+		log.Infof(s)
 		return -1, errors.New(s)
 	}
 
@@ -59,7 +59,7 @@ func isisSocket(iface *kernel.Interface) (int, error) {
 	err = syscall.Bind(fd, &addr)
 	if err != nil {
 		s := "syscall.Bind failed"
-		log.Info(s)
+		log.Infof(s)
 		return -1, errors.New(s)
 	}
 
@@ -77,7 +77,7 @@ func isisSocket(iface *kernel.Interface) (int, error) {
 		err = SetsockoptPacketMreq(fd, syscall.SOL_PACKET, syscall.PACKET_ADD_MEMBERSHIP, &mreq)
 		if err != nil {
 			s := "SetsockoptPacketMreq failed"
-			log.Info(s)
+			log.Infof(s)
 			return -1, errors.New(s)
 		}
 	}

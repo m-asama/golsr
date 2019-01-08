@@ -168,7 +168,7 @@ func (iih *IihPdu) LanId() []byte {
 }
 
 func (iih *IihPdu) SetLanId(lanId []byte) error {
-	if len(lanId) != 6 {
+	if len(lanId) != NEIGHBOUR_ID_LENGTH {
 		return errors.New("IihPdu.SetLanId: lanId length invalid")
 	}
 	lidtmp := make([]byte, len(lanId))

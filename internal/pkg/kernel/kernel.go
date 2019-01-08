@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"net"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
@@ -20,12 +22,14 @@ const (
 type Ipv4Address struct {
 	Address      uint32
 	PrefixLength int
+	ScopeHost    bool
 }
 
 type Ipv6Address struct {
 	Address      [4]uint32
 	PrefixLength int
 	ScopeLink    bool
+	ScopeHost    bool
 }
 
 type Interface struct {
@@ -50,6 +54,7 @@ func NewIpv4Address(addr *netlink.Addr) *Ipv4Address {
 	ipv4Address := &Ipv4Address{}
 	ipv4Address.Address = binary.BigEndian.Uint32(addr.IP[0:4])
 	ipv4Address.PrefixLength, _ = addr.Mask.Size()
+	ipv4Address.ScopeHost = (addr.Scope == unix.RT_SCOPE_HOST)
 	return ipv4Address
 }
 
@@ -64,6 +69,7 @@ func NewIpv6Address(addr *netlink.Addr) *Ipv6Address {
 	ipv6Address.Address[3] = binary.BigEndian.Uint32(addr.IP[12:16])
 	ipv6Address.PrefixLength, _ = addr.Mask.Size()
 	ipv6Address.ScopeLink = (addr.Scope == unix.RT_SCOPE_LINK)
+	ipv6Address.ScopeHost = (addr.Scope == unix.RT_SCOPE_HOST)
 	return ipv6Address
 }
 
@@ -141,12 +147,15 @@ func NewKernelStatus() *KernelStatus {
 }
 
 func Serve(status chan<- *KernelStatus) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	addrCh := make(chan netlink.AddrUpdate)
 	addrDone := make(chan struct{})
 	netlink.AddrSubscribe(addrCh, addrDone)
 	linkCh := make(chan netlink.LinkUpdate)
 	linkDone := make(chan struct{})
 	netlink.LinkSubscribe(linkCh, linkDone)
+	status <- NewKernelStatus()
 	for {
 		select {
 		case <-addrCh:

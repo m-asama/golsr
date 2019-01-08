@@ -22,6 +22,11 @@ func (config *Topology) validate() error {
 	return err
 }
 
+func (config *InterfaceAddressFamily) validate() error {
+	var err error
+	return err
+}
+
 func (config *InterfaceTopology) validate() error {
 	var err error
 	return err

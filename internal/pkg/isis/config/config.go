@@ -23,7 +23,7 @@ func detectConfigFileType(path, def string) string {
 	}
 }
 
-func ReadConfigfileServe(path, format string, configCh chan *IsisConfig) {
+func Serve(path, format string, configCh chan *IsisConfig) {
 
 	//log.Info("ReadConfigfileServe started")
 

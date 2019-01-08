@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type LsPdu struct {
@@ -201,6 +203,71 @@ func (ls *LsPdu) Serialize() ([]byte, error) {
 
 func (ls *LsPdu) BaseValid() bool {
 	return ls.base.valid()
+}
+
+/*
+func (ls *LsPdu) SetChecksum() error {
+	var csum uint32
+	ls.Checksum = 0
+	data, err := ls.Serialize()
+	if err != nil {
+		return errors.New("checksum error")
+	}
+	log.Debugf("%x", data)
+	for i := 12; i < len(data)-1; i += 2 {
+		csum += uint32(data[i]) << 8
+		csum += uint32(data[i+1])
+	}
+	if len(data)%2 == 1 {
+		csum += uint32(data[len(data)-1]) << 8
+	}
+	for csum > 0xffff {
+		csum = (csum >> 16) + (csum & 0xffff)
+	}
+	ls.Checksum = ^uint16(csum)
+	return nil
+}
+*/
+
+func (ls *LsPdu) SetChecksum() error {
+	ls.Checksum = 0
+	data, err := ls.Serialize()
+	if err != nil {
+		return errors.New("checksum error")
+	}
+	log.Debugf("%x", data)
+	len := len(data) - 12
+	left := len
+	//p := &data[12]
+	di := 12
+	c0 := 0
+	c1 := 0
+	for left != 0 {
+		tmplen := left
+		if tmplen > 4102 {
+			tmplen = 4102
+		}
+		for i := 0; i < tmplen; i++ {
+			c0 = c0 + int(data[di])
+			c1 += c0
+			//p += *byte(1)
+			di++
+		}
+		c0 = c0 % 255
+		c1 = c1 % 255
+		left -= tmplen
+	}
+	x := int((len-12-1)*c0-c1) % 255
+	if x <= 0 {
+		x += 255
+	}
+	y := 510 - c0 - x
+	if y > 255 {
+		y -= 255
+	}
+	csum := [2]byte{byte(x), byte(y)}
+	ls.Checksum = binary.BigEndian.Uint16(csum[0:2])
+	return nil
 }
 
 func (ls *LsPdu) LspId() []byte {

@@ -9,6 +9,8 @@ import (
 )
 
 func (isis *IsisServer) srmFlag(ls *Ls, circuit *Circuit) bool {
+	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	_, ok := ls.srmFlags[circuit.ifIndex()]
 	if ok {
 		return true
@@ -17,7 +19,8 @@ func (isis *IsisServer) srmFlag(ls *Ls, circuit *Circuit) bool {
 }
 
 func (isis *IsisServer) setSrmFlag(ls *Ls, circuit *Circuit) {
-	log.Debugf("%x %s", ls.pdu.LspId(), circuit.name)
+	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	if ls.pdu.SequenceNumber == 0 {
 		log.Debugf("ls.pdu.SequenceNumber == 0")
 		return
@@ -30,9 +33,9 @@ func (isis *IsisServer) setSrmFlag(ls *Ls, circuit *Circuit) {
 }
 
 func (isis *IsisServer) setSrmFlagAll(ls *Ls) {
-	log.Debugf("%x", ls.pdu.LspId())
+	log.Debugf("enter: lspid=%x", ls.pdu.LspId())
+	defer log.Debugf("enter: lspid=%x", ls.pdu.LspId())
 	if ls.pdu.SequenceNumber == 0 {
-		log.Debugf("ls.pdu.SequenceNumber == 0")
 		return
 	}
 	for _, cirtmp := range isis.circuitDb {
@@ -44,9 +47,9 @@ func (isis *IsisServer) setSrmFlagAll(ls *Ls) {
 }
 
 func (isis *IsisServer) setSrmFlagOtherThan(ls *Ls, circuit *Circuit) {
-	log.Debugf("%x %s", ls.pdu.LspId(), circuit.name)
+	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	if ls.pdu.SequenceNumber == 0 {
-		log.Debugf("ls.pdu.SequenceNumber == 0")
 		return
 	}
 	for _, cirtmp := range isis.circuitDb {
@@ -60,13 +63,27 @@ func (isis *IsisServer) setSrmFlagOtherThan(ls *Ls, circuit *Circuit) {
 	}
 }
 
+func (isis *IsisServer) setSrmFlagForCircuit(circuit *Circuit) {
+	log.Debugf("enter: circuit=%s", circuit.name)
+	defer log.Debugf("exit: circuit=%s", circuit.name)
+	isis.lock.Lock()
+	defer isis.lock.Unlock()
+	for _, level := range ISIS_LEVEL_ALL {
+		for _, lstmp := range isis.lsDb[level] {
+			isis.setSrmFlag(lstmp, circuit)
+		}
+	}
+}
+
 func (isis *IsisServer) clearSrmFlag(ls *Ls, circuit *Circuit) {
-	log.Debugf("%x %s", ls.pdu.LspId(), circuit.name)
+	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	delete(ls.srmFlags, circuit.ifIndex())
 }
 
 func (isis *IsisServer) ssnFlag(ls *Ls, circuit *Circuit) bool {
-	log.Debugf("%x %s", ls.pdu.LspId(), circuit.name)
+	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	_, ok := ls.ssnFlags[circuit.ifIndex()]
 	if ok {
 		return true
@@ -75,7 +92,8 @@ func (isis *IsisServer) ssnFlag(ls *Ls, circuit *Circuit) bool {
 }
 
 func (isis *IsisServer) setSsnFlag(ls *Ls, circuit *Circuit) {
-	log.Debugf("%x %s", ls.pdu.LspId(), circuit.name)
+	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	if !circuit.ready() {
 		log.Debugf("!circuit.ready()")
 		return
@@ -84,12 +102,14 @@ func (isis *IsisServer) setSsnFlag(ls *Ls, circuit *Circuit) {
 }
 
 func (isis *IsisServer) clearSsnFlag(ls *Ls, circuit *Circuit) {
-	log.Debugf("%x %s", ls.pdu.LspId(), circuit.name)
+	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	delete(ls.ssnFlags, circuit.ifIndex())
 }
 
 func (isis *IsisServer) clearSsnFlagOtherThan(ls *Ls, circuit *Circuit) {
-	log.Debugf("%x %s", ls.pdu.LspId(), circuit.name)
+	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	for _, cirtmp := range isis.circuitDb {
 		if cirtmp.ifIndex() == circuit.ifIndex() {
 			continue
@@ -99,6 +119,8 @@ func (isis *IsisServer) clearSsnFlagOtherThan(ls *Ls, circuit *Circuit) {
 }
 
 func (isis *IsisServer) rescheduleHandleFlags(interval uint16) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	time.Sleep(time.Second * time.Duration(interval))
 	isis.lock.Lock()
 	defer isis.lock.Unlock()
@@ -111,7 +133,8 @@ func (isis *IsisServer) rescheduleHandleFlags(interval uint16) {
 }
 
 func (isis *IsisServer) scheduleHandleFlags() {
-	//log.Debugf("")
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	time.Sleep(33 * time.Millisecond)
 	isis.lock.Lock()
 	defer isis.lock.Unlock()
@@ -125,46 +148,31 @@ func (isis *IsisServer) scheduleHandleFlags() {
 }
 
 func (isis *IsisServer) handleSrmFlags() map[uint16]bool {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	retrans := make(map[uint16]bool)
-	for _, ls := range isis.level1LsDb {
-		for ifitmp, sentOld := range ls.srmFlags {
-			circuit := isis.findCircuitByIfIndex(ifitmp)
-			if circuit == nil {
-				continue
-			}
-			interval := circuit.lspRetransmitInterval()
-			thresh := time.Now().Add(-1*time.Second*time.Duration(interval) + 33*time.Millisecond)
-			if sentOld != nil &&
-				sentOld.Before(thresh) {
-				continue
-			}
-			sentNew := time.Now()
-			circuit.sendLs(ls.pdu)
-			ls.srmFlags[ifitmp] = &sentNew
-			retrans[interval] = true
-			if circuit.configBcast() {
-				isis.clearSrmFlag(ls, circuit)
-			}
-		}
-	}
-	for _, ls := range isis.level2LsDb {
-		for ifitmp, sentOld := range ls.srmFlags {
-			circuit := isis.findCircuitByIfIndex(ifitmp)
-			if circuit == nil {
-				continue
-			}
-			interval := circuit.lspRetransmitInterval()
-			thresh := time.Now().Add(-1*time.Second*time.Duration(interval) + 10*time.Millisecond)
-			if sentOld != nil &&
-				sentOld.Before(thresh) {
-				continue
-			}
-			sentNew := time.Now()
-			circuit.sendLs(ls.pdu)
-			ls.srmFlags[ifitmp] = &sentNew
-			retrans[interval] = true
-			if circuit.configBcast() {
-				isis.clearSrmFlag(ls, circuit)
+	for _, level := range ISIS_LEVEL_ALL {
+		for _, ls := range isis.lsDb[level] {
+			for ifitmp, sentOld := range ls.srmFlags {
+				circuit := isis.findCircuitByIfIndex(ifitmp)
+				if circuit == nil {
+					continue
+				}
+				interval := circuit.lspRetransmitInterval()
+				thresh := time.Now()
+				thresh = thresh.Add(-1 * time.Second * time.Duration(interval))
+				thresh = thresh.Add(33 * time.Millisecond)
+				if sentOld != nil &&
+					sentOld.After(thresh) {
+					continue
+				}
+				sentNew := time.Now()
+				circuit.sendLs(ls.pdu)
+				ls.srmFlags[ifitmp] = &sentNew
+				retrans[interval] = true
+				if circuit.configBcast() {
+					isis.clearSrmFlag(ls, circuit)
+				}
 			}
 		}
 	}
@@ -172,23 +180,23 @@ func (isis *IsisServer) handleSrmFlags() map[uint16]bool {
 }
 
 func (isis *IsisServer) handleSsnFlags() {
-	{
-		l1lss := make(map[int][]*Ls)
-		for _, ls := range isis.level1LsDb {
+	for _, level := range ISIS_LEVEL_ALL {
+		lsstmp := make(map[int][]*Ls)
+		for _, ls := range isis.lsDb[level] {
 			for ifitmp, _ := range ls.ssnFlags {
 				circuit := isis.findCircuitByIfIndex(ifitmp)
 				if circuit == nil {
 					continue
 				}
-				lss, ok := l1lss[ifitmp]
+				lss, ok := lsstmp[ifitmp]
 				if !ok {
 					lss = make([]*Ls, 0)
 				}
 				lss = append(lss, ls)
-				l1lss[ifitmp] = lss
+				lsstmp[ifitmp] = lss
 			}
 		}
-		for ifitmp, lss := range l1lss {
+		for ifitmp, lss := range lsstmp {
 			circuit := isis.findCircuitByIfIndex(ifitmp)
 			if circuit == nil {
 				continue
@@ -197,38 +205,7 @@ func (isis *IsisServer) handleSsnFlags() {
 			for i, _ := range lss {
 				lsps[i] = lss[i].pdu
 			}
-			circuit.sendPsn(packet.PDU_TYPE_LEVEL1_PSNP, lsps)
-			for _, ls := range lss {
-				isis.clearSsnFlag(ls, circuit)
-			}
-		}
-	}
-	{
-		l2lss := make(map[int][]*Ls)
-		for _, ls := range isis.level2LsDb {
-			for ifitmp, _ := range ls.ssnFlags {
-				circuit := isis.findCircuitByIfIndex(ifitmp)
-				if circuit == nil {
-					continue
-				}
-				lss, ok := l2lss[ifitmp]
-				if !ok {
-					lss = make([]*Ls, 0)
-				}
-				lss = append(lss, ls)
-				l2lss[ifitmp] = lss
-			}
-		}
-		for ifitmp, lss := range l2lss {
-			circuit := isis.findCircuitByIfIndex(ifitmp)
-			if circuit == nil {
-				continue
-			}
-			lsps := make([]*packet.LsPdu, len(lss))
-			for i, _ := range lss {
-				lsps[i] = lss[i].pdu
-			}
-			circuit.sendPsn(packet.PDU_TYPE_LEVEL2_PSNP, lsps)
+			circuit.sendPsn(level.pduTypePsnp(), lsps)
 			for _, ls := range lss {
 				isis.clearSsnFlag(ls, circuit)
 			}

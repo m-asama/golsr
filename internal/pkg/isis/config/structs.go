@@ -288,6 +288,14 @@ type InterfaceLdp struct {
 	Config InterfaceLdpConfig `mapstructure:"config" json:"config,omitempty"`
 }
 
+type InterfaceAddressFamilyConfig struct {
+	AddressFamily *string `mapstructure:"address-family"`
+}
+
+type InterfaceAddressFamily struct {
+	Config InterfaceAddressFamilyConfig `mapstructure:"config" json:"config,omitempty"`
+}
+
 type InterfaceMpls struct {
 	InterfaceLdp InterfaceLdp `mapstructure:"ldp"`
 }
@@ -352,18 +360,18 @@ type InterfaceConfig struct {
 }
 
 type Interface struct {
-	Config              InterfaceConfig      `mapstructure:"config" json:"config,omitempty"`
-	HelloPadding        HelloPadding         `mapstructure:"hello-padding"`
-	HelloAuthentication Authentication       `mapstructure:"hello-authentication"`
-	HelloInterval       HelloInterval        `mapstructure:"hello-interval"`
-	HelloMultiplier     HelloMultiplier      `mapstructure:"hello-multiplier"`
-	Priority            Priority             `mapstructure:"priority"`
-	Metric              Metric               `mapstructure:"metric"`
-	Bfd                 Bfd                  `mapstructure:"bfd"`
-	AddressFamilies     []*AddressFamily     `mapstructure:"address-families"`
-	Mpls                InterfaceMpls        `mapstructure:"mpls"`
-	FastReroute         InterfaceFastReroute `mapstructure:"fast-reroute"`
-	Topologies          []*InterfaceTopology `mapstructure:"topologies"`
+	Config              InterfaceConfig           `mapstructure:"config" json:"config,omitempty"`
+	HelloPadding        HelloPadding              `mapstructure:"hello-padding"`
+	HelloAuthentication Authentication            `mapstructure:"hello-authentication"`
+	HelloInterval       HelloInterval             `mapstructure:"hello-interval"`
+	HelloMultiplier     HelloMultiplier           `mapstructure:"hello-multiplier"`
+	Priority            Priority                  `mapstructure:"priority"`
+	Metric              Metric                    `mapstructure:"metric"`
+	Bfd                 Bfd                       `mapstructure:"bfd"`
+	AddressFamilies     []*InterfaceAddressFamily `mapstructure:"address-families"`
+	Mpls                InterfaceMpls             `mapstructure:"mpls"`
+	FastReroute         InterfaceFastReroute      `mapstructure:"fast-reroute"`
+	Topologies          []*InterfaceTopology      `mapstructure:"topologies"`
 }
 
 type Config struct {

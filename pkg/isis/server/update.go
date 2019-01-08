@@ -2,7 +2,10 @@ package server
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -58,6 +61,8 @@ func (msgType UpdateChMsgType) String() string {
 	case UPDATE_CH_MSG_TYPE_EXIT:
 		return "UPDATE_CH_MSG_TYPE_EXIT"
 	}
+	log.Infof("")
+	panic("")
 	return fmt.Sprintf("UpdateChMsgType(%d)", msgType)
 }
 
@@ -79,9 +84,12 @@ func (msg *UpdateChMsg) String() string {
 	return b.String()
 }
 
-func (isis *IsisServer) updateProcess() {
-	log.Debugf("")
+func (isis *IsisServer) updateProcess(wg *sync.WaitGroup) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
+	wg.Wait()
 	for {
+		circuitChanged := false
 		msg := <-isis.updateCh
 		log.Debugf("%s", msg)
 		switch msg.msgType {
@@ -94,16 +102,19 @@ func (isis *IsisServer) updateProcess() {
 		case UPDATE_CH_MSG_TYPE_CIRCUIT_UP:
 			isis.circuitUp(msg.circuit)
 		case UPDATE_CH_MSG_TYPE_CIRCUIT_DOWN:
+			isis.circuitDown(msg.circuit)
 		case UPDATE_CH_MSG_TYPE_CIRCUIT_CHANGED:
+			circuitChanged = true
 		case UPDATE_CH_MSG_TYPE_ADJACENCY_UP:
 			isis.adjacencyUp(msg.adjacency)
 		case UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN:
+			isis.adjacencyDown(msg.adjacency)
 		case UPDATE_CH_MSG_TYPE_ADJACENCY_CHANGED:
 		case UPDATE_CH_MSG_TYPE_EXIT:
 			goto EXIT
 		}
-		if isis.changed() {
-			isis.generateLsps()
+		if isis.changed() || circuitChanged {
+			isis.updateOriginLsps()
 			isis.decisionCh <- &DecisionChMsg{
 				msgType: DECISION_CH_MSG_TYPE_DO,
 			}
@@ -113,10 +124,37 @@ EXIT:
 }
 
 func (isis *IsisServer) circuitUp(circuit *Circuit) {
+	log.Debug("enter: %s", circuit.name)
+	defer log.Debug("exit: %s", circuit.name)
+	now := time.Now()
+	circuit.uptime = &now
+	circuit.downtime = nil
+	go func() {
+		isis.updateCh <- &UpdateChMsg{
+			msgType: UPDATE_CH_MSG_TYPE_CIRCUIT_CHANGED,
+			circuit: circuit,
+		}
+	}()
+}
+
+func (isis *IsisServer) circuitDown(circuit *Circuit) {
+	log.Debug("enter: %s", circuit.name)
+	defer log.Debug("exit: %s", circuit.name)
+	for _, adjacency := range circuit.adjacencyDb {
+		adjacency.adjState = packet.ADJ_3WAY_STATE_DOWN
+	}
+	now := time.Now()
+	circuit.uptime = nil
+	circuit.downtime = &now
 }
 
 func (isis *IsisServer) adjacencyUp(adjacency *Adjacency) {
+	log.Debug("enter: %x %s", adjacency.lanAddress, adjacency.adjType)
+	defer log.Debug("exit: %x %s", adjacency.lanAddress, adjacency.adjType)
 	if adjacency.adjType == ADJ_TYPE_P2P {
+		// iso10589 p.42 7.3.17 a)
+		isis.setSrmFlagForCircuit(adjacency.circuit)
+		// iso10589 p.42 7.3.17 b)
 		if adjacency.adjUsage == ADJ_USAGE_LEVEL1 || adjacency.adjUsage == ADJ_USAGE_LEVEL1AND2 {
 			adjacency.circuit.sendCsn(packet.PDU_TYPE_LEVEL1_CSNP)
 		}
@@ -130,8 +168,14 @@ func (isis *IsisServer) adjacencyUp(adjacency *Adjacency) {
 	}
 }
 
+func (isis *IsisServer) adjacencyDown(adjacency *Adjacency) {
+	log.Debug("enter: %x %s", adjacency.lanAddress, adjacency.adjType)
+	defer log.Debug("exit: %x %s", adjacency.lanAddress, adjacency.adjType)
+}
+
 func (isis *IsisServer) changed() bool {
-	log.Debug("")
+	log.Debug("enter")
+	defer log.Debug("exit")
 
 	changed := false
 
@@ -147,40 +191,24 @@ func (isis *IsisServer) changed() bool {
 		changed = true
 	}
 
-	newLevel1IsReachabilities := isis.newIsReachabilities(ISIS_LEVEL_1)
-	if isis.isReachabilitiesChanged(ISIS_LEVEL_1, newLevel1IsReachabilities) {
-		isis.level1IsReachabilities = newLevel1IsReachabilities
-		changed = true
-	}
+	for _, level := range ISIS_LEVEL_ALL {
+		newIsReachabilities := isis.newIsReachabilities(level)
+		if isis.isReachabilitiesChanged(level, newIsReachabilities) {
+			isis.isReachabilities[level] = newIsReachabilities
+			changed = true
+		}
 
-	newLevel2IsReachabilities := isis.newIsReachabilities(ISIS_LEVEL_2)
-	if isis.isReachabilitiesChanged(ISIS_LEVEL_2, newLevel2IsReachabilities) {
-		isis.level2IsReachabilities = newLevel2IsReachabilities
-		changed = true
-	}
+		newIpv4Reachabilities := isis.newIpv4Reachabilities(level)
+		if isis.ipv4ReachabilitiesChanged(level, newIpv4Reachabilities) {
+			isis.ipv4Reachabilities[level] = newIpv4Reachabilities
+			changed = true
+		}
 
-	newLevel1Ipv4Reachabilities := isis.newIpv4Reachabilities(ISIS_LEVEL_1)
-	if isis.ipv4ReachabilitiesChanged(ISIS_LEVEL_1, newLevel1Ipv4Reachabilities) {
-		isis.level1Ipv4Reachabilities = newLevel1Ipv4Reachabilities
-		changed = true
-	}
-
-	newLevel2Ipv4Reachabilities := isis.newIpv4Reachabilities(ISIS_LEVEL_2)
-	if isis.ipv4ReachabilitiesChanged(ISIS_LEVEL_2, newLevel2Ipv4Reachabilities) {
-		isis.level2Ipv4Reachabilities = newLevel2Ipv4Reachabilities
-		changed = true
-	}
-
-	newLevel1Ipv6Reachabilities := isis.newIpv6Reachabilities(ISIS_LEVEL_1)
-	if isis.ipv6ReachabilitiesChanged(ISIS_LEVEL_1, newLevel1Ipv6Reachabilities) {
-		isis.level1Ipv6Reachabilities = newLevel1Ipv6Reachabilities
-		changed = true
-	}
-
-	newLevel2Ipv6Reachabilities := isis.newIpv6Reachabilities(ISIS_LEVEL_2)
-	if isis.ipv6ReachabilitiesChanged(ISIS_LEVEL_2, newLevel2Ipv6Reachabilities) {
-		isis.level2Ipv6Reachabilities = newLevel2Ipv6Reachabilities
-		changed = true
+		newIpv6Reachabilities := isis.newIpv6Reachabilities(level)
+		if isis.ipv6ReachabilitiesChanged(level, newIpv6Reachabilities) {
+			isis.ipv6Reachabilities[level] = newIpv6Reachabilities
+			changed = true
+		}
 	}
 
 	for _, circuit := range isis.circuitDb {
@@ -193,6 +221,8 @@ func (isis *IsisServer) changed() bool {
 }
 
 func (isis *IsisServer) systemIdChanged(newSystemId []byte) bool {
+	log.Debug("enter")
+	defer log.Debug("exit")
 	if !bytes.Equal(isis.systemId, newSystemId) {
 		return true
 	}
@@ -200,6 +230,8 @@ func (isis *IsisServer) systemIdChanged(newSystemId []byte) bool {
 }
 
 func (isis *IsisServer) areaAddressesChanged(newAreaAddresses [][]byte) bool {
+	log.Debug("enter")
+	defer log.Debug("exit")
 	if len(newAreaAddresses) != len(isis.areaAddresses) {
 		return true
 	}
@@ -211,287 +243,371 @@ func (isis *IsisServer) areaAddressesChanged(newAreaAddresses [][]byte) bool {
 	return false
 }
 
-// XXX: fix sort algo
-func (isis *IsisServer) sortIsReachabilities(isReachabilities []*IsReachability) {
-	for i := 0; i < len(isReachabilities); i++ {
-		for j := 0; j < len(isReachabilities); j++ {
-			if i == j {
+func (isis *IsisServer) lspArrayAppend(lss *[]*packet.LsPdu, level IsisLevel, nodeId uint8) (int, error) {
+	log.Debug("enter")
+	defer log.Debug("exit")
+	if len(*lss) == 256 {
+		log.Infof("LSP array overflow")
+		return -1, errors.New("LSP array overflow")
+	}
+	ls, err := packet.NewLsPdu(level.pduTypeLsp())
+	if err != nil {
+		log.Infof("LSP array append failed: %v", err)
+		return -1, err
+	}
+	index := len(*lss)
+	lspId := make([]byte, packet.LSP_ID_LENGTH)
+	copy(lspId[0:packet.SYSTEM_ID_LENGTH], isis.systemId)
+	lspId[packet.NEIGHBOUR_ID_LENGTH-1] = nodeId
+	lspId[packet.LSP_ID_LENGTH-1] = uint8(index)
+	ls.SetLspId(lspId)
+	ls.IsType = level.isType()
+	ls.RemainingLifetime = isis.lspLifetime()
+	if nodeId == 0 {
+		protocolsSupportedTlv, err := packet.NewProtocolsSupportedTlv()
+		if err != nil {
+			log.Infof("packet.NewProtocolsSupportedTlv failed: %v", err)
+			return -1, err
+		}
+		if isis.ipv4Enable() {
+			protocolsSupportedTlv.AddNlpId(packet.NLP_ID_IPV4)
+		}
+		if isis.ipv6Enable() {
+			protocolsSupportedTlv.AddNlpId(packet.NLP_ID_IPV6)
+		}
+		ls.SetProtocolsSupportedTlv(protocolsSupportedTlv)
+	}
+	if nodeId == 0 {
+		areaAddressesTlv, err := packet.NewAreaAddressesTlv()
+		if err != nil {
+			log.Infof("packet.NewAreaAddressesTlv failed: %v", err)
+			return -1, err
+		}
+		for _, areaAddress := range isis.areaAddresses {
+			areaAddressesTlv.AddAreaAddress(areaAddress)
+		}
+		ls.SetAreaAddressesTlv(areaAddressesTlv)
+	}
+	*lss = append(*lss, ls)
+	return index, nil
+}
+
+func (isis *IsisServer) updateLocalSystemLsps() {
+	log.Debug("enter")
+	defer log.Debug("exit")
+	for _, level := range ISIS_LEVEL_ALL {
+		lss := make([]*packet.LsPdu, 0)
+		index, err := isis.lspArrayAppend(&lss, level, uint8(0))
+		if err != nil {
+			log.Infof("lspArrayAppend failed: %v", err)
+			return
+		}
+		if isis.old(level) {
+			//
+			isNeighboursLspTlv, err := packet.NewIsNeighboursLspTlv()
+			if err != nil {
+				log.Infof("packet.NewIsNeighboursLspTlv failed: %v", err)
+				return
+			}
+			for _, ir := range isis.isReachabilities[level] {
+				neigh, err := packet.NewIsNeighboursLspNeighbour(ir.neighborId)
+				if err != nil {
+					log.Infof("packet.NewIsNeighboursLspNeighbour failed: %v", err)
+					return
+				}
+				neigh.DefaultMetric = uint8(ir.metric)
+				err = isNeighboursLspTlv.AddNeighbour(neigh)
+				if err != nil {
+					log.Infof("AddNeighbour failed: %v", err)
+					return
+				}
+			}
+			err = lss[index].AddIsNeighboursLspTlv(isNeighboursLspTlv)
+			if err != nil {
+				log.Infof("AddIsNeighboursLspTlv failed: %v", err)
+				return
+			}
+			//
+			ipInternalReachInfoTlv, err := packet.NewIpInternalReachInfoTlv()
+			if err != nil {
+				log.Infof("packet.NewIpInternalReachInfoTlv failed: %v", err)
+				return
+			}
+			for _, ir := range isis.ipv4Reachabilities[level] {
+				if ir.scopeHost {
+					continue
+				}
+				subnet, err := packet.NewIpInternalReachInfoIpSubnet()
+				subnet.DefaultMetric = uint8(ir.metric)
+				subnet.IpAddress = ir.ipv4Prefix
+				subnet.SubnetMask = plen2snmask4(ir.prefixLength)
+				err = ipInternalReachInfoTlv.AddIpSubnet(subnet)
+				if err != nil {
+					log.Infof("AddIpSubnet failed: %v", err)
+					return
+				}
+			}
+			err = lss[index].AddIpInternalReachInfoTlv(ipInternalReachInfoTlv)
+			if err != nil {
+				log.Infof("AddIpInternalReachInfoTlv failed: %v", err)
+				return
+			}
+		}
+		if isis.wide(level) {
+			//
+			extendedIsReachabilityTlv, err := packet.NewExtendedIsReachabilityTlv()
+			if err != nil {
+				log.Infof("packet.NewExtendedIsReachabilityTlv failed: %v", err)
+				return
+			}
+			for _, ir := range isis.isReachabilities[level] {
+				neigh, err := packet.NewExtendedIsReachabilityNeighbour(ir.neighborId)
+				if err != nil {
+					log.Infof("packet.NewExtendedIsReachabilityNeighbour failed: %v", err)
+					return
+				}
+				neigh.DefaultMetric = ir.metric
+				err = extendedIsReachabilityTlv.AddNeighbour(neigh)
+				if err != nil {
+					log.Infof("AddNeighbour failed: %v", err)
+					return
+				}
+			}
+			err = lss[index].AddExtendedIsReachabilityTlv(extendedIsReachabilityTlv)
+			if err != nil {
+				log.Infof("AddExtendedIsReachabilityTlv failed: %v", err)
+				return
+			}
+			//
+			extendedIpReachabilityTlv, err := packet.NewExtendedIpReachabilityTlv()
+			if err != nil {
+				log.Infof("packet.NewExtendedIpReachabilityTlv failed: %v", err)
+				return
+			}
+			for _, ir := range isis.ipv4Reachabilities[level] {
+				if ir.scopeHost {
+					continue
+				}
+				subnet, err := packet.NewExtendedIpReachabilityIpv4Prefix(
+					ir.ipv4Prefix, ir.prefixLength)
+				subnet.MetricInformation = ir.metric
+				err = extendedIpReachabilityTlv.AddIpv4Prefix(subnet)
+				if err != nil {
+					log.Infof("AddIpv4Prefix failed: %v", err)
+					return
+				}
+			}
+			err = lss[index].AddExtendedIpReachabilityTlv(extendedIpReachabilityTlv)
+			if err != nil {
+				log.Infof("AddExtendedIpReachabilityTlv failed: %v", err)
+				return
+			}
+		}
+		//
+		ipv6ReachabilityTlv, err := packet.NewIpv6ReachabilityTlv()
+		if err != nil {
+			log.Infof("packet.NewIpv6ReachabilityTlv failed: %v", err)
+			return
+		}
+		for _, ir := range isis.ipv6Reachabilities[level] {
+			if ir.scopeLink || ir.scopeHost {
 				continue
 			}
-			if bytes.Compare(isReachabilities[i].neighborId, isReachabilities[j].neighborId) > 0 {
-				tmp := isReachabilities[i]
-				isReachabilities[i] = isReachabilities[j]
-				isReachabilities[j] = tmp
+			subnet, err := packet.NewIpv6ReachabilityIpv6Prefix(
+				ir.ipv6Prefix, ir.prefixLength)
+			subnet.Metric = ir.metric
+			err = ipv6ReachabilityTlv.AddIpv6Prefix(subnet)
+			if err != nil {
+				log.Infof("AddIpv6Prefix failed: %v", err)
+				return
 			}
+		}
+		err = lss[index].AddIpv6ReachabilityTlv(ipv6ReachabilityTlv)
+		if err != nil {
+			log.Infof("AddIpv6ReachabilityTlv failed: %v", err)
+			return
+		}
+		//
+		cur := isis.originLss(level, 0)
+		check := make(map[*Ls]bool)
+		for _, p := range cur {
+			check[p] = true
+		}
+		for _, ls := range lss {
+			found := false
+			for _, curtmp := range cur {
+				if bytes.Equal(ls.LspId(), curtmp.pdu.LspId()) {
+					found = true
+					ls.SequenceNumber = curtmp.pdu.SequenceNumber + 1
+					ls.SetChecksum()
+					curtmp.pdu = ls
+					isis.setSrmFlagAll(curtmp)
+					delete(check, curtmp)
+				}
+			}
+			if !found {
+				now := time.Now()
+				ls.SequenceNumber = 1
+				ls.SetChecksum()
+				p := isis.insertLsp(ls, true, &now)
+				isis.setSrmFlagAll(p)
+			}
+		}
+		for p, _ := range check {
+			p.pdu.RemainingLifetime = 0
+			isis.setSrmFlagAll(p)
 		}
 	}
 }
 
-func (isis *IsisServer) currentIsReachabilities(level IsisLevel) []*IsReachability {
-	var current []*IsReachability
-	switch level {
-	case ISIS_LEVEL_1:
-		current = isis.level1IsReachabilities
-	case ISIS_LEVEL_2:
-		current = isis.level2IsReachabilities
+func (isis *IsisServer) updatePseudoNodeLsps(circuit *Circuit, level IsisLevel) {
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
+	for _, level := range ISIS_LEVEL_ALL {
+		lss := make([]*packet.LsPdu, 0)
+		index, err := isis.lspArrayAppend(&lss, level, circuit.localCircuitId)
+		if err != nil {
+			log.Infof("lspArrayAppend failed: %v", err)
+			return
+		}
+		if isis.old(level) {
+			isNeighboursLspTlv, err := packet.NewIsNeighboursLspTlv()
+			if err != nil {
+				log.Infof("packet.NewIsNeighboursLspTlv failed: %v", err)
+				return
+			}
+			neighborId := make([]byte, packet.NEIGHBOUR_ID_LENGTH)
+			copy(neighborId, isis.systemId)
+			neigh, err := packet.NewIsNeighboursLspNeighbour(neighborId)
+			if err != nil {
+				log.Infof("packet.NewIsNeighboursLspNeighbour failed: %v", err)
+				return
+			}
+			neigh.DefaultMetric = uint8(0)
+			err = isNeighboursLspTlv.AddNeighbour(neigh)
+			if err != nil {
+				log.Infof("AddNeighbour failed: %v", err)
+				return
+			}
+			//for _, ir := range isis.isReachabilities[level] {
+			for _, adj := range circuit.adjacencyDb {
+				if !adj.level(level) || adj.adjState != packet.ADJ_3WAY_STATE_UP {
+					continue
+				}
+				neighborId := make([]byte, packet.NEIGHBOUR_ID_LENGTH)
+				copy(neighborId, adj.systemId)
+				neigh, err := packet.NewIsNeighboursLspNeighbour(neighborId)
+				if err != nil {
+					log.Infof("packet.NewIsNeighboursLspNeighbour failed: %v", err)
+					return
+				}
+				neigh.DefaultMetric = uint8(0)
+				err = isNeighboursLspTlv.AddNeighbour(neigh)
+				if err != nil {
+					log.Infof("AddNeighbour failed: %v", err)
+					return
+				}
+			}
+			err = lss[index].AddIsNeighboursLspTlv(isNeighboursLspTlv)
+			if err != nil {
+				log.Infof("AddIsNeighboursLspTlv failed: %v", err)
+				return
+			}
+		}
+		if isis.wide(level) {
+			extendedIsReachabilityTlv, err := packet.NewExtendedIsReachabilityTlv()
+			if err != nil {
+				log.Infof("packet.NewExtendedIsReachabilityTlv failed: %v", err)
+				return
+			}
+			neighborId := make([]byte, packet.NEIGHBOUR_ID_LENGTH)
+			copy(neighborId, isis.systemId)
+			neigh, err := packet.NewExtendedIsReachabilityNeighbour(neighborId)
+			if err != nil {
+				log.Infof("packet.NewExtendedIsReachabilityNeighbour failed: %v", err)
+				return
+			}
+			neigh.DefaultMetric = 0
+			err = extendedIsReachabilityTlv.AddNeighbour(neigh)
+			if err != nil {
+				log.Infof("AddNeighbour failed: %v", err)
+				return
+			}
+			//for _, ir := range isis.isReachabilities[level] {
+			for _, adj := range circuit.adjacencyDb {
+				if !adj.level(level) || adj.adjState != packet.ADJ_3WAY_STATE_UP {
+					continue
+				}
+				neighborId := make([]byte, packet.NEIGHBOUR_ID_LENGTH)
+				copy(neighborId, adj.systemId)
+				neigh, err := packet.NewExtendedIsReachabilityNeighbour(neighborId)
+				if err != nil {
+					log.Infof("packet.NewExtendedIsReachabilityNeighbour failed: %v", err)
+					return
+				}
+				neigh.DefaultMetric = 0
+				err = extendedIsReachabilityTlv.AddNeighbour(neigh)
+				if err != nil {
+					log.Infof("AddNeighbour failed: %v", err)
+					return
+				}
+			}
+			err = lss[index].AddExtendedIsReachabilityTlv(extendedIsReachabilityTlv)
+			if err != nil {
+				log.Infof("AddExtendedIsReachabilityTlv failed: %v", err)
+				return
+			}
+		}
+		cur := isis.originLss(level, circuit.localCircuitId)
+		check := make(map[*Ls]bool)
+		for _, p := range cur {
+			check[p] = true
+		}
+		for _, ls := range lss {
+			found := false
+			for _, curtmp := range cur {
+				if bytes.Equal(ls.LspId(), curtmp.pdu.LspId()) {
+					found = true
+					ls.SequenceNumber = curtmp.pdu.SequenceNumber + 1
+					ls.SetChecksum()
+					curtmp.pdu = ls
+					isis.setSrmFlagAll(curtmp)
+					delete(check, curtmp)
+				}
+			}
+			if !found {
+				now := time.Now()
+				ls.SequenceNumber = 1
+				ls.SetChecksum()
+				p := isis.insertLsp(ls, true, &now)
+				isis.setSrmFlagAll(p)
+			}
+		}
+		for p, _ := range check {
+			p.pdu.RemainingLifetime = 0
+			isis.setSrmFlagAll(p)
+		}
 	}
-	return current
 }
 
-func (isis *IsisServer) newIsReachabilities(level IsisLevel) []*IsReachability {
-	new := make([]*IsReachability, 0)
+func (isis *IsisServer) updateOriginLsps() {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
+	//now := time.Now()
+	isis.updateLocalSystemLsps()
 	for _, circuit := range isis.circuitDb {
-		for _, adjacency := range circuit.adjacencyDb {
-			if adjacency.adjState != packet.ADJ_3WAY_STATE_UP {
-				continue
-			}
-			neighborId := make([]byte, len(adjacency.systemId))
-			copy(neighborId, adjacency.systemId)
-			isr := &IsReachability{
-				neighborId: neighborId,
-				metric:     adjacency.circuit.metric(level),
-				lspNumber:  -1,
-			}
-			new = append(new, isr)
-		}
-	}
-	for _, ctmp := range isis.currentIsReachabilities(level) {
-		for _, ntmp := range new {
-			if bytes.Equal(ntmp.neighborId, ctmp.neighborId) {
-				ntmp.lspNumber = ctmp.lspNumber
+		for _, level := range ISIS_LEVEL_ALL {
+			/*
+				d := time.Second * circuit.sendLanIihInterval(level) * 2
+				d -= time.Millisecond * 10
+				if circuit.uptime == nil || !circuit.uptime.Add(d).Before(now) {
+					continue
+				}
+			*/
+			if circuit.designated(level) {
+				isis.updatePseudoNodeLsps(circuit, level)
 			}
 		}
 	}
-	isis.sortIsReachabilities(new)
-	return new
-}
-
-func (isis *IsisServer) isReachabilitiesChanged(level IsisLevel, new []*IsReachability) bool {
-	current := isis.currentIsReachabilities(level)
-	if len(current) != len(new) {
-		return true
-	}
-	for i := 0; i < len(current); i++ {
-		if !bytes.Equal(current[i].neighborId, new[i].neighborId) ||
-			current[i].metric != new[i].metric {
-			return true
-		}
-	}
-	return false
-}
-
-// XXX: fix sort algo
-func (isis *IsisServer) sortIpv4Reachabilities(ipv4Reachabilities []*Ipv4Reachability) {
-	for i := 0; i < len(ipv4Reachabilities); i++ {
-		for j := 0; j < len(ipv4Reachabilities); j++ {
-			if i == j {
-				continue
-			}
-			if ipv4Reachabilities[i].ipv4Prefix > ipv4Reachabilities[j].ipv4Prefix {
-				tmp := ipv4Reachabilities[i]
-				ipv4Reachabilities[i] = ipv4Reachabilities[j]
-				ipv4Reachabilities[j] = tmp
-			}
-			if ipv4Reachabilities[i].ipv4Prefix != ipv4Reachabilities[j].ipv4Prefix {
-				continue
-			}
-			if ipv4Reachabilities[i].prefixLength > ipv4Reachabilities[j].prefixLength {
-				tmp := ipv4Reachabilities[i]
-				ipv4Reachabilities[i] = ipv4Reachabilities[j]
-				ipv4Reachabilities[j] = tmp
-			}
-		}
-	}
-}
-
-func (isis *IsisServer) currentIpv4Reachabilities(level IsisLevel) []*Ipv4Reachability {
-	var current []*Ipv4Reachability
-	switch level {
-	case ISIS_LEVEL_1:
-		current = isis.level1Ipv4Reachabilities
-	case ISIS_LEVEL_2:
-		current = isis.level2Ipv4Reachabilities
-	}
-	return current
-}
-
-func (isis *IsisServer) newIpv4Reachabilities(level IsisLevel) []*Ipv4Reachability {
-	new := make([]*Ipv4Reachability, 0)
-	for _, iface := range isis.kernel.Interfaces {
-		circuit, ok := isis.circuitDb[iface.IfIndex]
-		if !ok {
-			continue
-		}
-		for _, ipv4Address := range iface.Ipv4Addresses {
-			ipv4r := &Ipv4Reachability{
-				ipv4Prefix:   ipv4Address.Address,
-				prefixLength: uint8(ipv4Address.PrefixLength),
-				metric:       circuit.metric(level),
-				lspNumber:    -1,
-			}
-			new = append(new, ipv4r)
-		}
-	}
-	for _, ctmp := range isis.currentIpv4Reachabilities(level) {
-		for _, ntmp := range new {
-			if ntmp.ipv4Prefix == ctmp.ipv4Prefix &&
-				ntmp.prefixLength == ctmp.prefixLength {
-				ntmp.lspNumber = ctmp.lspNumber
-			}
-		}
-	}
-	isis.sortIpv4Reachabilities(new)
-	return new
-}
-
-func (isis *IsisServer) ipv4ReachabilitiesChanged(level IsisLevel, new []*Ipv4Reachability) bool {
-	current := isis.currentIpv4Reachabilities(level)
-	if len(current) != len(new) {
-		return true
-	}
-	for i := 0; i < len(current); i++ {
-		if current[i].ipv4Prefix != new[i].ipv4Prefix ||
-			current[i].prefixLength != new[i].prefixLength ||
-			current[i].metric != new[i].metric {
-			return true
-		}
-	}
-	return false
-}
-
-// XXX: fix sort algo
-func (isis *IsisServer) sortIpv6Reachabilities(ipv6Reachabilities []*Ipv6Reachability) {
-	for i := 0; i < len(ipv6Reachabilities); i++ {
-		for j := 0; j < len(ipv6Reachabilities); j++ {
-			if i == j {
-				continue
-			}
-			if ipv6Reachabilities[i].ipv6Prefix[0] > ipv6Reachabilities[j].ipv6Prefix[0] {
-				tmp := ipv6Reachabilities[i]
-				ipv6Reachabilities[i] = ipv6Reachabilities[j]
-				ipv6Reachabilities[j] = tmp
-			}
-			if ipv6Reachabilities[i].ipv6Prefix[0] != ipv6Reachabilities[j].ipv6Prefix[0] {
-				continue
-			}
-			if ipv6Reachabilities[i].ipv6Prefix[1] > ipv6Reachabilities[j].ipv6Prefix[1] {
-				tmp := ipv6Reachabilities[i]
-				ipv6Reachabilities[i] = ipv6Reachabilities[j]
-				ipv6Reachabilities[j] = tmp
-			}
-			if ipv6Reachabilities[i].ipv6Prefix[1] != ipv6Reachabilities[j].ipv6Prefix[1] {
-				continue
-			}
-			if ipv6Reachabilities[i].ipv6Prefix[2] > ipv6Reachabilities[j].ipv6Prefix[2] {
-				tmp := ipv6Reachabilities[i]
-				ipv6Reachabilities[i] = ipv6Reachabilities[j]
-				ipv6Reachabilities[j] = tmp
-			}
-			if ipv6Reachabilities[i].ipv6Prefix[2] != ipv6Reachabilities[j].ipv6Prefix[2] {
-				continue
-			}
-			if ipv6Reachabilities[i].ipv6Prefix[3] > ipv6Reachabilities[j].ipv6Prefix[3] {
-				tmp := ipv6Reachabilities[i]
-				ipv6Reachabilities[i] = ipv6Reachabilities[j]
-				ipv6Reachabilities[j] = tmp
-			}
-			if ipv6Reachabilities[i].ipv6Prefix[3] != ipv6Reachabilities[j].ipv6Prefix[3] {
-				continue
-			}
-			if ipv6Reachabilities[i].prefixLength > ipv6Reachabilities[j].prefixLength {
-				tmp := ipv6Reachabilities[i]
-				ipv6Reachabilities[i] = ipv6Reachabilities[j]
-				ipv6Reachabilities[j] = tmp
-			}
-		}
-	}
-}
-
-func (isis *IsisServer) currentIpv6Reachabilities(level IsisLevel) []*Ipv6Reachability {
-	var current []*Ipv6Reachability
-	switch level {
-	case ISIS_LEVEL_1:
-		current = isis.level1Ipv6Reachabilities
-	case ISIS_LEVEL_2:
-		current = isis.level2Ipv6Reachabilities
-	}
-	return current
-}
-
-func (isis *IsisServer) newIpv6Reachabilities(level IsisLevel) []*Ipv6Reachability {
-	new := make([]*Ipv6Reachability, 0)
-	for _, iface := range isis.kernel.Interfaces {
-		circuit, ok := isis.circuitDb[iface.IfIndex]
-		if !ok {
-			continue
-		}
-		for _, ipv6Address := range iface.Ipv6Addresses {
-			ipv6r := &Ipv6Reachability{
-				ipv6Prefix: [4]uint32{
-					ipv6Address.Address[0],
-					ipv6Address.Address[1],
-					ipv6Address.Address[2],
-					ipv6Address.Address[3],
-				},
-				prefixLength: uint8(ipv6Address.PrefixLength),
-				metric:       circuit.metric(level),
-				lspNumber:    -1,
-			}
-			new = append(new, ipv6r)
-		}
-	}
-	for _, ctmp := range isis.currentIpv6Reachabilities(level) {
-		for _, ntmp := range new {
-			if ntmp.ipv6Prefix[0] == ctmp.ipv6Prefix[0] &&
-				ntmp.ipv6Prefix[1] == ctmp.ipv6Prefix[1] &&
-				ntmp.ipv6Prefix[2] == ctmp.ipv6Prefix[2] &&
-				ntmp.ipv6Prefix[3] == ctmp.ipv6Prefix[3] &&
-				ntmp.prefixLength == ctmp.prefixLength {
-				ntmp.lspNumber = ctmp.lspNumber
-			}
-		}
-	}
-	isis.sortIpv6Reachabilities(new)
-	return new
-}
-
-func (isis *IsisServer) ipv6ReachabilitiesChanged(level IsisLevel, new []*Ipv6Reachability) bool {
-	current := isis.currentIpv6Reachabilities(level)
-	if len(current) != len(new) {
-		return true
-	}
-	for i := 0; i < len(current); i++ {
-		if current[i].ipv6Prefix[0] != new[i].ipv6Prefix[0] ||
-			current[i].ipv6Prefix[1] != new[i].ipv6Prefix[1] ||
-			current[i].ipv6Prefix[2] != new[i].ipv6Prefix[2] ||
-			current[i].ipv6Prefix[3] != new[i].ipv6Prefix[3] ||
-			current[i].prefixLength != new[i].prefixLength ||
-			current[i].metric != new[i].metric {
-			return true
-		}
-	}
-	return false
-}
-
-func (isis *IsisServer) generateSystemLsps() {
-	log.Debugf("")
-	//systemLsps := make(map[int]*Ls)
-	//for _, _ := range isis.level1IsReachabilities
-}
-
-func (isis *IsisServer) generatePseudoNodeLsps(circuit *Circuit, level IsisLevel) {
-	log.Debugf("%s", circuit.name)
-}
-
-func (isis *IsisServer) generateLsps() {
-	log.Debugf("")
-	isis.generateSystemLsps()
-	for _, circuit := range isis.circuitDb {
-		if circuit.designated(ISIS_LEVEL_1) {
-			isis.generatePseudoNodeLsps(circuit, ISIS_LEVEL_1)
-		}
-		if circuit.designated(ISIS_LEVEL_2) {
-			isis.generatePseudoNodeLsps(circuit, ISIS_LEVEL_2)
-		}
-	}
+	go isis.scheduleHandleFlags()
 }

@@ -46,11 +46,10 @@ func main() {
 		os.Exit(0)
 	}
 
-	log.SetReportCaller(true)
-
 	switch opts.LogLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
+		log.SetReportCaller(true)
 	case "info":
 		log.SetLevel(log.InfoLevel)
 	default:
@@ -75,7 +74,7 @@ func main() {
 
 	if opts.Dry {
 		configCh := make(chan *config.IsisConfig)
-		go config.ReadConfigfileServe(opts.ConfigFile, opts.ConfigType, configCh)
+		go config.Serve(opts.ConfigFile, opts.ConfigType, configCh)
 		c := <-configCh
 		if opts.LogLevel == "debug" {
 			pretty.Println(c)

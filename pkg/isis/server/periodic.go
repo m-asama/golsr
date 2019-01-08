@@ -7,6 +7,8 @@ import (
 )
 
 func (isis *IsisServer) lsDbIter(ls *Ls) bool {
+	//log.Debugf("enter")
+	//defer log.Debugf("exit")
 	changed := false
 	if ls.pdu.RemainingLifetime > 0 {
 		ls.pdu.RemainingLifetime--
@@ -25,23 +27,24 @@ func (isis *IsisServer) lsDbIter(ls *Ls) bool {
 }
 
 func (isis *IsisServer) lsDbWalk() bool {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	isis.lock.Lock()
 	defer isis.lock.Unlock()
 	changed := false
-	for _, ls := range isis.level1LsDb {
-		if isis.lsDbIter(ls) {
-			changed = true
-		}
-	}
-	for _, ls := range isis.level2LsDb {
-		if isis.lsDbIter(ls) {
-			changed = true
+	for _, level := range ISIS_LEVEL_ALL {
+		for _, ls := range isis.lsDb[level] {
+			if isis.lsDbIter(ls) {
+				changed = true
+			}
 		}
 	}
 	return changed
 }
 
 func (isis *IsisServer) adjDbWalk() bool {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	isis.lock.Lock()
 	defer isis.lock.Unlock()
 	changed := false
@@ -64,7 +67,8 @@ func (isis *IsisServer) adjDbWalk() bool {
 }
 
 func (isis *IsisServer) periodic(doneCh chan struct{}) {
-	log.Debugf("start")
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	timer := time.NewTimer(0)
 	started := time.Now()
 	var counter time.Duration
@@ -81,5 +85,4 @@ func (isis *IsisServer) periodic(doneCh chan struct{}) {
 		}
 	}
 EXIT:
-	log.Debugf("exit")
 }

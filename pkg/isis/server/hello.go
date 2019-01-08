@@ -25,6 +25,18 @@ func (circuit *Circuit) sendL2lIihInterval() time.Duration {
 	return time.Duration(circuit.helloInterval(ISIS_LEVEL_2))
 }
 
+func (circuit *Circuit) sendLanIihInterval(level IsisLevel) time.Duration {
+	switch level {
+	case ISIS_LEVEL_1:
+		return circuit.sendL1lIihInterval()
+	case ISIS_LEVEL_2:
+		return circuit.sendL2lIihInterval()
+	}
+	log.Infof("")
+	panic("")
+	return time.Duration(0)
+}
+
 func (circuit *Circuit) p2pHoldingTime() uint16 {
 	holdingTime := circuit.helloHoldingTime(ISIS_LEVEL_1)
 	if circuit.helloHoldingTime(ISIS_LEVEL_2) < holdingTime {
@@ -44,17 +56,20 @@ func (circuit *Circuit) l2lHoldingTime() uint16 {
 func (circuit *Circuit) holdingTime(pduType packet.PduType) uint16 {
 	switch pduType {
 	case packet.PDU_TYPE_LEVEL1_LAN_IIHP:
-		circuit.l1lHoldingTime()
+		return circuit.l1lHoldingTime()
 	case packet.PDU_TYPE_LEVEL2_LAN_IIHP:
-		circuit.l2lHoldingTime()
+		return circuit.l2lHoldingTime()
 	case packet.PDU_TYPE_P2P_IIHP:
-		circuit.p2pHoldingTime()
+		return circuit.p2pHoldingTime()
 	}
-	return uint16(1200)
+	log.Infof("")
+	panic("")
+	return uint16(30)
 }
 
 func (circuit *Circuit) sendIih(pduType packet.PduType) {
-	//log.Debugf("%s", circuit.name)
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 
 	iih, err := packet.NewIihPdu(pduType)
 	if err != nil {
@@ -65,6 +80,12 @@ func (circuit *Circuit) sendIih(pduType packet.PduType) {
 	iih.CircuitType = circuit.circuitType()
 	iih.SetSourceId(circuit.isis.systemId)
 	iih.HoldingTime = circuit.holdingTime(pduType)
+
+	if pduType != packet.PDU_TYPE_P2P_IIHP {
+		level := pduType2level(pduType)
+		iih.Priority = circuit.priority(level)
+		iih.SetLanId(circuit.lanId(level))
+	}
 
 	protocolsSupportedTlv, _ := packet.NewProtocolsSupportedTlv()
 	protocolsSupportedTlv.AddNlpId(packet.NLP_ID_IPV4)
@@ -82,9 +103,9 @@ func (circuit *Circuit) sendIih(pduType packet.PduType) {
 		for _, adjacency := range circuit.adjacencyDb {
 			if adjacency.adjState == packet.ADJ_3WAY_STATE_DOWN ||
 				(pduType == packet.PDU_TYPE_LEVEL1_LAN_IIHP &&
-					adjacency.adjUsage != ADJ_USAGE_LEVEL1) ||
+					adjacency.adjType != ADJ_TYPE_LEVEL1_LAN) ||
 				(pduType == packet.PDU_TYPE_LEVEL2_LAN_IIHP &&
-					adjacency.adjUsage != ADJ_USAGE_LEVEL2) {
+					adjacency.adjType != ADJ_TYPE_LEVEL2_LAN) {
 				continue
 			}
 			isNeighboursHelloTlv.AddLanAddress(adjacency.lanAddress)
@@ -118,8 +139,17 @@ func (circuit *Circuit) sendIih(pduType packet.PduType) {
 	iih.SetIpInterfaceAddressTlv(ipInterfaceAddressTlv)
 
 	ipv6InterfaceAddressTlv, _ := packet.NewIpv6InterfaceAddressTlv()
+	llFound := false
 	for _, ipv6Address := range circuit.ifKernel.Ipv6Addresses {
-		ipv6InterfaceAddressTlv.AddIpv6Address(ipv6Address.Address)
+		if ipv6Address.ScopeLink {
+			ipv6InterfaceAddressTlv.AddIpv6Address(ipv6Address.Address)
+			llFound = true
+		}
+	}
+	if !llFound {
+		for _, ipv6Address := range circuit.ifKernel.Ipv6Addresses {
+			ipv6InterfaceAddressTlv.AddIpv6Address(ipv6Address.Address)
+		}
 	}
 	iih.SetIpv6InterfaceAddressTlv(ipv6InterfaceAddressTlv)
 
@@ -156,16 +186,15 @@ func (circuit *Circuit) sendIih(pduType packet.PduType) {
 	circuit.sendPdu(iih)
 }
 
-func (circuit *Circuit) receiveBcastIih(pdu *packet.IihPdu, lanAddress []byte) {
-	//log.Debugf("%s", circuit.name)
+func (circuit *Circuit) receiveBcastIih(pdu *packet.IihPdu, remoteLanAddress []byte) {
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 
 	if !circuit.ready() {
-		log.Debugf("!circuit.ready()")
 		return
 	}
 
 	if !pdu.BaseValid() {
-		log.Debugf("!pdu.BaseValid()")
 		return
 	}
 
@@ -175,7 +204,7 @@ func (circuit *Circuit) receiveBcastIih(pdu *packet.IihPdu, lanAddress []byte) {
 	ipv6Supported := false
 	protocolsSupportedTlv, err := pdu.ProtocolsSupportedTlv()
 	if err != nil {
-		log.Debugf("get ProtocolsSupportedTlv failed: %v", err)
+		log.Infof("get ProtocolsSupportedTlv failed: %v", err)
 		return
 	}
 	if protocolsSupportedTlv != nil {
@@ -193,7 +222,7 @@ func (circuit *Circuit) receiveBcastIih(pdu *packet.IihPdu, lanAddress []byte) {
 	ipv4Addresses := make([]uint32, 0)
 	ipInterfaceAddressTlv, err := pdu.IpInterfaceAddressTlv()
 	if err != nil {
-		log.Debugf("get IpInterfaceAddressTlv failed: %v", err)
+		log.Infof("get IpInterfaceAddressTlv failed: %v", err)
 		return
 	}
 	if ipInterfaceAddressTlv != nil {
@@ -203,7 +232,7 @@ func (circuit *Circuit) receiveBcastIih(pdu *packet.IihPdu, lanAddress []byte) {
 	ipv6Addresses := make([][4]uint32, 0)
 	ipv6InterfaceAddressTlv, err := pdu.Ipv6InterfaceAddressTlv()
 	if err != nil {
-		log.Debugf("get Ipv6InterfaceAddressTlv failed: %v", err)
+		log.Infof("get Ipv6InterfaceAddressTlv failed: %v", err)
 		return
 	}
 	if ipv6InterfaceAddressTlv != nil {
@@ -212,28 +241,32 @@ func (circuit *Circuit) receiveBcastIih(pdu *packet.IihPdu, lanAddress []byte) {
 
 	areaAddressesTlv, err := pdu.AreaAddressesTlv()
 	if err != nil {
-		log.Debugf("get AreaAddressesTlv failed: %v", err)
+		log.Infof("get AreaAddressesTlv failed: %v", err)
 		return
 	}
 	areaAddresses := areaAddressesTlv.AreaAddresses()
+
 	var adjType AdjType
+	var adjUsage AdjUsage
 	switch pdu.PduType() {
 	case packet.PDU_TYPE_LEVEL1_LAN_IIHP:
 		// iso10589 p.60 8.4.2.2
 		if !circuit.isis.matchAreaAddresses(areaAddresses) {
-			log.Debugf("area address mismatch")
+			log.Infof("area address mismatch")
 			return
 		}
 		adjType = ADJ_TYPE_LEVEL1_LAN
+		adjUsage = ADJ_USAGE_LEVEL1
 	case packet.PDU_TYPE_LEVEL2_LAN_IIHP:
 		// iso10589 p.61 8.4.2.3
 		adjType = ADJ_TYPE_LEVEL2_LAN
+		adjUsage = ADJ_USAGE_LEVEL2
 	}
 
 	remoteLanAddresses := make([][]byte, 0)
 	isNeighboursHelloTlvs, err := pdu.IsNeighboursHelloTlvs()
 	if err != nil {
-		log.Debugf("get IsNeighboursHelloTlv failed: %v", err)
+		log.Infof("get IsNeighboursHelloTlv failed: %v", err)
 		return
 	}
 	if isNeighboursHelloTlvs != nil {
@@ -245,42 +278,25 @@ func (circuit *Circuit) receiveBcastIih(pdu *packet.IihPdu, lanAddress []byte) {
 		}
 	}
 
-	adjacency := circuit.findAdjacency(lanAddress, adjType)
-	if adjacency != nil &&
-		bytes.Equal(adjacency.lanAddress, lanAddress) &&
-		bytes.Equal(adjacency.systemId, systemId) &&
-		(adjType == ADJ_TYPE_LEVEL1_LAN && adjacency.adjUsage == ADJ_USAGE_LEVEL1 ||
-			adjType == ADJ_TYPE_LEVEL2_LAN && adjacency.adjUsage == ADJ_USAGE_LEVEL2) {
-		included := false
-		for _, latmp := range remoteLanAddresses {
-			if bytes.Equal(latmp, lanAddress) {
-				included = true
-			}
-		}
-		if included {
-			// iso10589 p.61 8.4.2.4
-			adjacency.holdingTime = pdu.HoldingTime
-			adjacency.priority = pdu.Priority
-			adjacency.areaAddresses = areaAddresses
-		} else {
-			// iso10589 p.62 8.4.5.3
-			adjacency.adjState = packet.ADJ_3WAY_STATE_INITIALIZING
-			circuit.isis.updateCh <- &UpdateChMsg{
-				msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,
-				adjacency: adjacency,
-			}
-		}
-	}
+	adjacency := circuit.findAdjacency(remoteLanAddress, adjType)
+	if adjacency != nil && bytes.Equal(adjacency.systemId, systemId) {
+		// iso10589 p.61 8.4.2.4
+		adjacency.holdingTime = pdu.HoldingTime
+		adjacency.priority = pdu.Priority
+		adjacency.areaAddresses = areaAddresses
 
-	if adjacency == nil {
+	} else {
+		if adjacency != nil {
+			circuit.removeAdjacency(remoteLanAddress, adjType)
+		}
 		// iso10589 p.61 8.4.2.5
 		adjacency, err = NewAdjacency(circuit)
 		if err != nil {
-			log.Debugf("NewAdjacency failed: %v", err)
+			log.Infof("NewAdjacency failed: %v", err)
 			return
 		}
 		adjacency.adjState = packet.ADJ_3WAY_STATE_INITIALIZING
-		adjacency.adjUsage = ADJ_USAGE_NONE
+		adjacency.adjUsage = adjUsage
 		adjacency.ipv4Supported = ipv4Supported
 		adjacency.ipv6Supported = ipv6Supported
 		adjacency.areaAddresses = areaAddresses
@@ -292,22 +308,40 @@ func (circuit *Circuit) receiveBcastIih(pdu *packet.IihPdu, lanAddress []byte) {
 		adjacency.priority = pdu.Priority
 		adjacency.systemId = systemId
 		adjacency.areaAddresses = areaAddresses
-		adjacency.lanAddress = lanAddress
-		included := false
-		for _, latmp := range remoteLanAddresses {
-			if bytes.Equal(latmp, lanAddress) {
-				included = true
-			}
+		adjacency.lanAddress = remoteLanAddress
+		circuit.addAdjacency(adjacency)
+	}
+
+	localLanAddress := circuit.kernelHardwareAddr()
+	included := false
+	for _, latmp := range remoteLanAddresses {
+		if bytes.Equal(latmp, localLanAddress) {
+			included = true
 		}
-		if included {
+	}
+	if included {
+		if adjacency.adjState != packet.ADJ_3WAY_STATE_UP {
+			log.Infof("%s: %x: %s -> ADJ_3WAY_STATE_UP", circuit.name, adjacency.lanAddress,
+				adjacency.adjState)
+			// iso10589 p.61 8.4.2.5.1
 			adjacency.adjState = packet.ADJ_3WAY_STATE_UP
 			circuit.isis.updateCh <- &UpdateChMsg{
 				msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_UP,
 				adjacency: adjacency,
 			}
 		}
+	} else {
+		if adjacency.adjState == packet.ADJ_3WAY_STATE_UP {
+			log.Infof("%s: %x: %s -> ADJ_3WAY_STATE_INITIALIZING", circuit.name, adjacency.lanAddress,
+				adjacency.adjState)
+			// iso10589 p.62 8.4.5.3
+			adjacency.adjState = packet.ADJ_3WAY_STATE_INITIALIZING
+			circuit.isis.updateCh <- &UpdateChMsg{
+				msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,
+				adjacency: adjacency,
+			}
+		}
 	}
-
 }
 
 type P2pIihAction uint8
@@ -321,16 +355,15 @@ const (
 	P2P_IIH_ACTION_REJECT
 )
 
-func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
-	//log.Debugf("%s", circuit.name)
+func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, remoteLanAddress []byte) {
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 
 	if !circuit.ready() {
-		log.Debugf("!circuit.ready()")
 		return
 	}
 
 	if !pdu.BaseValid() {
-		log.Debugf("!pdu.BaseValid()")
 		return
 	}
 
@@ -338,21 +371,14 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 
 	areaAddressesTlv, err := pdu.AreaAddressesTlv()
 	if err != nil {
-		log.Debugf("get AreaAddressesTlv failed: %v", err)
+		log.Infof("get AreaAddressesTlv failed: %v", err)
 		return
 	}
 	areaAddresses := areaAddressesTlv.AreaAddresses()
-	/*
-		if pdu.CircuitType != packet.CIRCUIT_TYPE_LEVEL2_ONLY &&
-			!circuit.isis.matchAreaAddresses(areaAddresses) {
-			log.Debugf("area address mismatch")
-			return
-		}
-	*/
 
 	protocolsSupportedTlv, err := pdu.ProtocolsSupportedTlv()
 	if err != nil {
-		log.Debugf("get ProtocolsSupportedTlv failed: %v", err)
+		log.Infof("get ProtocolsSupportedTlv failed: %v", err)
 		return
 	}
 	ipv4Supported := false
@@ -369,14 +395,14 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 
 	ipInterfaceAddressTlv, err := pdu.IpInterfaceAddressTlv()
 	if err != nil {
-		log.Debugf("get IpInterfaceAddressTlv failed: %v", err)
+		log.Infof("get IpInterfaceAddressTlv failed: %v", err)
 		return
 	}
 	ipv4Addresses := ipInterfaceAddressTlv.IpAddresses()
 
 	ipv6InterfaceAddressTlv, err := pdu.Ipv6InterfaceAddressTlv()
 	if err != nil {
-		log.Debugf("get Ipv6InterfaceAddressTlv failed: %v", err)
+		log.Infof("get Ipv6InterfaceAddressTlv failed: %v", err)
 		return
 	}
 	ipv6Addresses := ipv6InterfaceAddressTlv.Ipv6Addresses()
@@ -385,11 +411,11 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 
 	var adjType AdjType
 	adjType = ADJ_TYPE_P2P
-	adjacency := circuit.findAdjacency(lanAddress, adjType)
+	adjacency := circuit.findAdjacency(remoteLanAddress, adjType)
 	if adjacency == nil {
 		adjacency, err = NewAdjacency(circuit)
 		if err != nil {
-			log.Debugf("NewAdjacency failed: %v", err)
+			log.Infof("NewAdjacency failed: %v", err)
 			return
 		}
 		adjacency.adjState = packet.ADJ_3WAY_STATE_DOWN
@@ -400,7 +426,7 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 		adjacency.areaAddresses = areaAddresses
 		adjacency.ipv4Addresses = ipv4Addresses
 		adjacency.ipv6Addresses = ipv6Addresses
-		adjacency.lanAddress = lanAddress
+		adjacency.lanAddress = remoteLanAddress
 		adjacency.systemId = systemId
 		//adjacency.priority
 		//adjacency.lanId
@@ -442,7 +468,7 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 					log.Debugf("Down(Wrong system)")
 					action = P2P_IIH_ACTION_DOWN
 					adjacency.adjState = packet.ADJ_3WAY_STATE_DOWN
-					circuit.removeAdjacency(lanAddress, adjType)
+					circuit.removeAdjacency(remoteLanAddress, adjType)
 					//adjacencyStateChanged = true
 					circuit.isis.updateCh <- &UpdateChMsg{
 						msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,
@@ -472,7 +498,7 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 					log.Debugf("Down(Wrong system)")
 					action = P2P_IIH_ACTION_DOWN
 					adjacency.adjState = packet.ADJ_3WAY_STATE_DOWN
-					circuit.removeAdjacency(lanAddress, adjType)
+					circuit.removeAdjacency(remoteLanAddress, adjType)
 					//adjacencyStateChanged = true
 					circuit.isis.updateCh <- &UpdateChMsg{
 						msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,
@@ -495,7 +521,7 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 					log.Debugf("Down(Wrong system)")
 					action = P2P_IIH_ACTION_DOWN
 					adjacency.adjState = packet.ADJ_3WAY_STATE_DOWN
-					circuit.removeAdjacency(lanAddress, adjType)
+					circuit.removeAdjacency(remoteLanAddress, adjType)
 					//adjacencyStateChanged = true
 					circuit.isis.updateCh <- &UpdateChMsg{
 						msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,
@@ -520,7 +546,7 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 					log.Debugf("Down(Wrong system)")
 					action = P2P_IIH_ACTION_DOWN
 					adjacency.adjState = packet.ADJ_3WAY_STATE_DOWN
-					circuit.removeAdjacency(lanAddress, adjType)
+					circuit.removeAdjacency(remoteLanAddress, adjType)
 					//adjacencyStateChanged = true
 					circuit.isis.updateCh <- &UpdateChMsg{
 						msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,
@@ -543,7 +569,7 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 					log.Debugf("Down(Wrong system)")
 					action = P2P_IIH_ACTION_DOWN
 					adjacency.adjState = packet.ADJ_3WAY_STATE_DOWN
-					circuit.removeAdjacency(lanAddress, adjType)
+					circuit.removeAdjacency(remoteLanAddress, adjType)
 					//adjacencyStateChanged = true
 					circuit.isis.updateCh <- &UpdateChMsg{
 						msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,
@@ -566,7 +592,7 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 					log.Debugf("Down(Wrong system)")
 					action = P2P_IIH_ACTION_DOWN
 					adjacency.adjState = packet.ADJ_3WAY_STATE_DOWN
-					circuit.removeAdjacency(lanAddress, adjType)
+					circuit.removeAdjacency(remoteLanAddress, adjType)
 					//adjacencyStateChanged = true
 					circuit.isis.updateCh <- &UpdateChMsg{
 						msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,
@@ -581,12 +607,12 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 		// iso10589 p.53 8.2.5.2 b)
 		if circuit.isis.level1Only() && adjacency.adjState != packet.ADJ_3WAY_STATE_UP {
 			// iso10589 p.53 8.2.5.2 b) 1)
-			circuit.removeAdjacency(lanAddress, adjType)
+			circuit.removeAdjacency(remoteLanAddress, adjType)
 		}
 		if circuit.isis.level1Only() && adjacency.adjState == packet.ADJ_3WAY_STATE_UP {
 			// iso10589 p.53 8.2.5.2 b) 2)
 			action = P2P_IIH_ACTION_DOWN
-			circuit.removeAdjacency(lanAddress, adjType)
+			circuit.removeAdjacency(remoteLanAddress, adjType)
 			//adjacencyStateChanged = true
 			circuit.isis.updateCh <- &UpdateChMsg{
 				msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,
@@ -606,7 +632,7 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 					log.Debugf("Down(Area mismatch)")
 					action = P2P_IIH_ACTION_DOWN
 					adjacency.adjState = packet.ADJ_3WAY_STATE_DOWN
-					circuit.removeAdjacency(lanAddress, adjType)
+					circuit.removeAdjacency(remoteLanAddress, adjType)
 					//adjacencyStateChanged = true
 					circuit.isis.updateCh <- &UpdateChMsg{
 						msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,
@@ -616,7 +642,7 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 					log.Debugf("Down(Wrong system)")
 					action = P2P_IIH_ACTION_DOWN
 					adjacency.adjState = packet.ADJ_3WAY_STATE_DOWN
-					circuit.removeAdjacency(lanAddress, adjType)
+					circuit.removeAdjacency(remoteLanAddress, adjType)
 					//adjacencyStateChanged = true
 					circuit.isis.updateCh <- &UpdateChMsg{
 						msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,
@@ -639,7 +665,7 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 					action = P2P_IIH_ACTION_DOWN
 					log.Debugf("Down(Wrong system)")
 					adjacency.adjState = packet.ADJ_3WAY_STATE_DOWN
-					circuit.removeAdjacency(lanAddress, adjType)
+					circuit.removeAdjacency(remoteLanAddress, adjType)
 					//adjacencyStateChanged = true
 					circuit.isis.updateCh <- &UpdateChMsg{
 						msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,
@@ -664,7 +690,7 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 					log.Debugf("Down(Wrong system)")
 					action = P2P_IIH_ACTION_DOWN
 					adjacency.adjState = packet.ADJ_3WAY_STATE_DOWN
-					circuit.removeAdjacency(lanAddress, adjType)
+					circuit.removeAdjacency(remoteLanAddress, adjType)
 					//adjacencyStateChanged = true
 					circuit.isis.updateCh <- &UpdateChMsg{
 						msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,
@@ -674,7 +700,7 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 					log.Debugf("Down(Area mismatch)")
 					action = P2P_IIH_ACTION_DOWN
 					adjacency.adjState = packet.ADJ_3WAY_STATE_DOWN
-					circuit.removeAdjacency(lanAddress, adjType)
+					circuit.removeAdjacency(remoteLanAddress, adjType)
 					//adjacencyStateChanged = true
 					circuit.isis.updateCh <- &UpdateChMsg{
 						msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,
@@ -707,7 +733,7 @@ func (circuit *Circuit) receiveP2pIih(pdu *packet.IihPdu, lanAddress []byte) {
 		// iso10589 p.53 8.2.5.2 d)
 		if !bytes.Equal(systemId, adjacency.systemId) {
 			adjacency.adjState = packet.ADJ_3WAY_STATE_DOWN
-			circuit.removeAdjacency(lanAddress, adjType)
+			circuit.removeAdjacency(remoteLanAddress, adjType)
 			//adjacencyStateChanged = true
 			circuit.isis.updateCh <- &UpdateChMsg{
 				msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,

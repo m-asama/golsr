@@ -205,6 +205,12 @@ func NewIsNeighboursLspNeighbour(neighbourId []byte) (*isNeighboursLspNeighbour,
 	return &neighbour, nil
 }
 
+func (neighbour *isNeighboursLspNeighbour) NeighbourId() []byte {
+	neighbourId := make([]byte, len(neighbour.neighbourId))
+	copy(neighbourId, neighbour.neighbourId)
+	return neighbourId
+}
+
 type isNeighboursLspTlv struct {
 	base        tlvBase
 	VirtualFlag bool
@@ -230,6 +236,14 @@ func (tlv *isNeighboursLspTlv) NeighbourIds() [][]byte {
 		neighbourIds = append(neighbourIds, neighbourId)
 	}
 	return neighbourIds
+}
+
+func (tlv *isNeighboursLspTlv) Neighbours() []*isNeighboursLspNeighbour {
+	neighbours := make([]*isNeighboursLspNeighbour, 0)
+	for _, n := range tlv.neighbours {
+		neighbours = append(neighbours, &n)
+	}
+	return neighbours
 }
 
 func (tlv *isNeighboursLspTlv) AddNeighbour(neighbour *isNeighboursLspNeighbour) error {

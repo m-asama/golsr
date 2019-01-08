@@ -21,6 +21,8 @@ type ApiServer struct {
 }
 
 func NewApiServer(i *IsisServer, g *grpc.Server, hosts string) *ApiServer {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	grpc.EnableTracing = false
 	s := &ApiServer{
 		isisServer: i,
@@ -32,9 +34,13 @@ func NewApiServer(i *IsisServer, g *grpc.Server, hosts string) *ApiServer {
 }
 
 func (s *ApiServer) Serve(wg *sync.WaitGroup) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	defer wg.Done()
 
 	serve := func(host string) {
+		log.Debugf("enter")
+		defer log.Debugf("exit")
 		defer wg.Done()
 		lis, err := net.Listen("tcp", host)
 		if err != nil {
@@ -61,10 +67,14 @@ func (s *ApiServer) Serve(wg *sync.WaitGroup) {
 }
 
 func (s *ApiServer) Exit() {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	s.grpcServer.Stop()
 }
 
 func (s *ApiServer) Enable(ctx context.Context, in *api.EnableRequest) (*api.EnableResponse, error) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	response := &api.EnableResponse{}
 	if s.isisServer.enable() {
 		response.Result = "already enabled"
@@ -80,6 +90,8 @@ func (s *ApiServer) Enable(ctx context.Context, in *api.EnableRequest) (*api.Ena
 }
 
 func (s *ApiServer) Disable(ctx context.Context, in *api.DisableRequest) (*api.DisableResponse, error) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	response := &api.DisableResponse{}
 	if s.isisServer.enable() {
 		s.isisServer.SetDisable()
@@ -95,6 +107,8 @@ func (s *ApiServer) Disable(ctx context.Context, in *api.DisableRequest) (*api.D
 }
 
 func (s *ApiServer) InterfaceEnable(ctx context.Context, in *api.InterfaceEnableRequest) (*api.InterfaceEnableResponse, error) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	response := &api.InterfaceEnableResponse{}
 	found := false
 	for _, iface := range s.isisServer.circuitDb {
@@ -120,6 +134,8 @@ func (s *ApiServer) InterfaceEnable(ctx context.Context, in *api.InterfaceEnable
 }
 
 func (s *ApiServer) InterfaceDisable(ctx context.Context, in *api.InterfaceDisableRequest) (*api.InterfaceDisableResponse, error) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	response := &api.InterfaceDisableResponse{}
 	found := false
 	for _, iface := range s.isisServer.circuitDb {
@@ -145,13 +161,15 @@ func (s *ApiServer) InterfaceDisable(ctx context.Context, in *api.InterfaceDisab
 }
 
 func (s *ApiServer) AdjacencyGet(ctx context.Context, in *api.AdjacencyGetRequest) (*api.AdjacencyGetResponse, error) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	return nil, nil
 }
 
 func (s *ApiServer) AdjacencyMonitor(in *api.AdjacencyMonitorRequest, stream api.GoisisApi_AdjacencyMonitorServer) error {
-	//log.Debugf("%s", in.Interface)
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	for _, iface := range s.isisServer.circuitDb {
-		//log.Debugf("%s", iface.name)
 		if in.Interface != "all" && iface.name != in.Interface {
 			continue
 		}
@@ -180,10 +198,14 @@ func (s *ApiServer) AdjacencyMonitor(in *api.AdjacencyMonitorRequest, stream api
 }
 
 func (s *ApiServer) DbLsGet(ctx context.Context, in *api.DbLsGetRequest) (*api.DbLsGetResponse, error) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	return nil, nil
 }
 
 func fillLsp(apiLsp *api.Lsp, packetLsp *packet.LsPdu) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	apiLsp.Level = "??"
 	switch packetLsp.PduType() {
 	case packet.PDU_TYPE_LEVEL1_LSP:
@@ -198,10 +220,12 @@ func fillLsp(apiLsp *api.Lsp, packetLsp *packet.LsPdu) {
 }
 
 func (s *ApiServer) DbLsMonitor(in *api.DbLsMonitorRequest, stream api.GoisisApi_DbLsMonitorServer) error {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	if in.Level == "level-1" || in.Level == "all" {
 		lsps := make([]*api.Lsp, 0)
 		s.isisServer.lock.Lock()
-		for _, lsptmp := range s.isisServer.level1LsDb {
+		for _, lsptmp := range s.isisServer.lsDb[ISIS_LEVEL_1] {
 			lsp := &api.Lsp{}
 			fillLsp(lsp, lsptmp.pdu)
 			lsps = append(lsps, lsp)
@@ -216,7 +240,7 @@ func (s *ApiServer) DbLsMonitor(in *api.DbLsMonitorRequest, stream api.GoisisApi
 	if in.Level == "level-2" || in.Level == "all" {
 		lsps := make([]*api.Lsp, 0)
 		s.isisServer.lock.Lock()
-		for _, lsptmp := range s.isisServer.level2LsDb {
+		for _, lsptmp := range s.isisServer.lsDb[ISIS_LEVEL_2] {
 			lsp := &api.Lsp{}
 			fillLsp(lsp, lsptmp.pdu)
 			lsps = append(lsps, lsp)

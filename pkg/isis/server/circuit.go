@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"errors"
+	"math"
 	"syscall"
 	"time"
 
@@ -39,8 +40,10 @@ type Circuit struct {
 	fd                     int
 	localCircuitId         uint8
 	extendedLocalCircuitId uint32
-	level1IsReachabilities []*IsReachability
-	level2IsReachabilities []*IsReachability
+	isReachabilities       [ISIS_LEVEL_NUM][]*IsReachability
+	//previousIsReachabilities [ISIS_LEVEL_NUM][]*IsReachability
+	uptime   *time.Time
+	downtime *time.Time
 
 	adjacencyDb []*Adjacency
 
@@ -61,6 +64,8 @@ type Circuit struct {
 }
 
 func newLocalCircuitId(isis *IsisServer) (uint8, error) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	localCircuitId := 0
 	for _, ctmp := range isis.circuitDb {
 		if int(ctmp.localCircuitId) > localCircuitId {
@@ -86,17 +91,24 @@ func newLocalCircuitId(isis *IsisServer) (uint8, error) {
 }
 
 func NewCircuit(isis *IsisServer, ifKernel *kernel.Interface, ifConfig *config.Interface) *Circuit {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	if isis == nil || ifKernel == nil || ifConfig == nil {
-		s := "nil arg error"
-		log.Info(s)
+		log.Info("nil arg error")
 		return nil
 	}
+	now := time.Now()
+	var uptime, downtime *time.Time
 	localCircuitId, err := newLocalCircuitId(isis)
 	extendedLocalCircuitId := uint32(localCircuitId)
 	if err != nil {
-		s := "%v"
-		log.Infof(s, err)
+		log.Infof("%v", err)
 		return nil
+	}
+	if ifKernel.Up {
+		uptime = &now
+	} else {
+		downtime = &now
 	}
 	circuit := &Circuit{
 		isis:                   isis,
@@ -106,8 +118,8 @@ func NewCircuit(isis *IsisServer, ifKernel *kernel.Interface, ifConfig *config.I
 		fd:                     -1,
 		localCircuitId:         localCircuitId,
 		extendedLocalCircuitId: extendedLocalCircuitId,
-		level1IsReachabilities: make([]*IsReachability, 0),
-		level2IsReachabilities: make([]*IsReachability, 0),
+		uptime:                 uptime,
+		downtime:               downtime,
 		adjacencyDb:            make([]*Adjacency, 0),
 		snSenderCh:             make(chan *packet.SnPdu, 8),
 		lsSenderCh:             make(chan *packet.LsPdu, 8),
@@ -124,11 +136,24 @@ func NewCircuit(isis *IsisServer, ifKernel *kernel.Interface, ifConfig *config.I
 		receiverCh:             make(chan CircuitChMsg),
 		receiverState:          CIRCUIT_CH_STATE_SUSPENDED,
 	}
+	for _, level := range ISIS_LEVEL_ALL {
+		circuit.isReachabilities[level] = make([]*IsReachability, 0)
+		//circuit.previousIsReachabilities[level] = make([]*IsReachability, 0)
+	}
+	if ifKernel.Up {
+		go func() {
+			isis.updateCh <- &UpdateChMsg{
+				msgType: UPDATE_CH_MSG_TYPE_CIRCUIT_CHANGED,
+				circuit: circuit,
+			}
+		}()
+	}
 	return circuit
 }
 
 func (circuit *Circuit) Serve() {
-	log.Debugf("%s", circuit.name)
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	go circuit.snSender()
 	go circuit.lsSender()
 	go circuit.p2pIihSender()
@@ -140,7 +165,8 @@ func (circuit *Circuit) Serve() {
 }
 
 func (circuit *Circuit) Exit() {
-	log.Debugf("%s", circuit.name)
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	close(circuit.snSenderCh)
 	close(circuit.lsSenderCh)
 	circuit.p2pIihSenderCh <- CIRCUIT_CH_MSG_EXIT
@@ -152,20 +178,26 @@ func (circuit *Circuit) Exit() {
 }
 
 func (circuit *Circuit) SetEnable() {
-	log.Debugf("%s", circuit.name)
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	*circuit.ifConfig.Config.Enable = true
 }
 
 func (circuit *Circuit) SetDisable() {
-	log.Debugf("%s", circuit.name)
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	*circuit.ifConfig.Config.Enable = false
 }
 
 func (circuit *Circuit) SetPassive() {
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	*circuit.ifConfig.Config.Passive = true
 }
 
 func (circuit *Circuit) SetActive() {
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	*circuit.ifConfig.Config.Passive = false
 }
 
@@ -213,18 +245,64 @@ func (circuit *Circuit) lspRetransmitInterval() uint16 {
 
 func (circuit *Circuit) designated(level IsisLevel) bool {
 	if !circuit.ready() {
+		//log.Debugf("%s: !circuit.ready()", level)
+		return false
+	}
+	if !circuit.configBcast() {
+		//log.Debugf("%s: !circuit.configBcast()", level)
 		return false
 	}
 	for _, adjacency := range circuit.adjacencyDb {
-		if level == ISIS_LEVEL_1 && adjacency.adjType != ADJ_TYPE_LEVEL2_LAN ||
-			level == ISIS_LEVEL_2 && adjacency.adjType != ADJ_TYPE_LEVEL1_LAN {
+		//log.Debugf("%s: %x %s", level, adjacency.lanId, adjacency.adjState)
+		if adjacency.adjState != packet.ADJ_3WAY_STATE_UP ||
+			level == ISIS_LEVEL_1 && adjacency.adjType != ADJ_TYPE_LEVEL1_LAN ||
+			level == ISIS_LEVEL_2 && adjacency.adjType != ADJ_TYPE_LEVEL2_LAN {
+			//log.Debugf("%s: continue", level)
 			continue
 		}
-		if bytes.Compare(circuit.kernelHardwareAddr(), adjacency.lanAddress) < 0 {
+		if circuit.priority(level) < adjacency.priority ||
+			circuit.priority(level) == adjacency.priority &&
+				bytes.Compare(circuit.kernelHardwareAddr(), adjacency.lanAddress) < 0 {
+			//log.Debugf("%s: false", level)
 			return false
 		}
 	}
+	//log.Debugf("%s: true", level)
 	return true
+}
+
+func (circuit *Circuit) lanId(level IsisLevel) []byte {
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
+	lanId := make([]byte, packet.NEIGHBOUR_ID_LENGTH)
+	copy(lanId[0:packet.SYSTEM_ID_LENGTH], circuit.isis.systemId)
+	lanId[packet.NEIGHBOUR_ID_LENGTH-1] = circuit.localCircuitId
+	if circuit.designated(level) {
+		return lanId
+	}
+	var designated *Adjacency
+	for _, adjacency := range circuit.adjacencyDb {
+		if adjacency.adjState != packet.ADJ_3WAY_STATE_UP ||
+			level == ISIS_LEVEL_1 && adjacency.adjType != ADJ_TYPE_LEVEL1_LAN ||
+			level == ISIS_LEVEL_2 && adjacency.adjType != ADJ_TYPE_LEVEL2_LAN {
+			continue
+		}
+		if designated == nil {
+			designated = adjacency
+			continue
+		}
+		if designated.priority < adjacency.priority ||
+			designated.priority == adjacency.priority &&
+				bytes.Compare(designated.lanAddress, adjacency.lanAddress) < 0 {
+			designated = adjacency
+		}
+	}
+	if designated != nil {
+		//copy(lanId, designated.lanId)
+		copy(lanId[0:packet.SYSTEM_ID_LENGTH], designated.systemId)
+		lanId[packet.NEIGHBOUR_ID_LENGTH-1] = designated.circuitId
+	}
+	return lanId
 }
 
 func (circuit *Circuit) helloInterval(level IsisLevel) uint16 {
@@ -260,7 +338,19 @@ func (circuit *Circuit) circuitType() packet.CircuitType {
 	case "level-all":
 		return packet.CIRCUIT_TYPE_BOTH_LEVEL1_AND_LEVEL2
 	}
+	log.Infof("")
+	panic("")
 	return packet.CIRCUIT_TYPE_RESERVED
+}
+
+func (circuit *Circuit) priority(level IsisLevel) uint8 {
+	switch level {
+	case ISIS_LEVEL_1:
+		return *circuit.ifConfig.Priority.Level1.Config.Value
+	case ISIS_LEVEL_2:
+		return *circuit.ifConfig.Priority.Level2.Config.Value
+	}
+	return *circuit.ifConfig.Priority.Config.Value
 }
 
 func (circuit *Circuit) metric(level IsisLevel) uint32 {
@@ -298,6 +388,8 @@ func (circuit *Circuit) kernelUp() bool {
 }
 
 func (circuit *Circuit) findAdjacency(lanAddress []byte, adjType AdjType) *Adjacency {
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	for _, adjacency := range circuit.adjacencyDb {
 		if bytes.Equal(adjacency.lanAddress, lanAddress) &&
 			adjacency.adjType == adjType {
@@ -308,6 +400,8 @@ func (circuit *Circuit) findAdjacency(lanAddress []byte, adjType AdjType) *Adjac
 }
 
 func (circuit *Circuit) addAdjacency(adjacency *Adjacency) error {
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	adjacencies := make([]*Adjacency, 0)
 	for _, adjtmp := range circuit.adjacencyDb {
 		if !bytes.Equal(adjtmp.lanAddress, adjacency.lanAddress) ||
@@ -321,6 +415,8 @@ func (circuit *Circuit) addAdjacency(adjacency *Adjacency) error {
 }
 
 func (circuit *Circuit) removeAdjacency(lanAddress []byte, adjType AdjType) error {
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	adjacencies := make([]*Adjacency, 0)
 	for _, adjtmp := range circuit.adjacencyDb {
 		if !bytes.Equal(adjtmp.lanAddress, lanAddress) ||
@@ -333,11 +429,11 @@ func (circuit *Circuit) removeAdjacency(lanAddress []byte, adjType AdjType) erro
 }
 
 func (circuit *Circuit) snSender() {
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	for {
 		snp, ok := <-circuit.snSenderCh
-		log.Debugf("%s", circuit.name)
 		if !ok {
-			log.Debugf("%s: closed", circuit.name)
 			return
 		}
 		circuit.sendPdu(snp)
@@ -345,11 +441,11 @@ func (circuit *Circuit) snSender() {
 }
 
 func (circuit *Circuit) lsSender() {
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	for {
 		lsp, ok := <-circuit.lsSenderCh
-		log.Debugf("%s", circuit.name)
 		if !ok {
-			log.Debugf("%s: closed", circuit.name)
 			return
 		}
 		circuit.sendPdu(lsp)
@@ -358,8 +454,9 @@ func (circuit *Circuit) lsSender() {
 }
 
 func (circuit *Circuit) p2pIihSender() {
-	//log.Debugf("%s: begin", circuit.name)
-	timer := time.NewTimer(0)
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
+	timer := time.NewTimer(time.Duration(math.MaxInt64))
 	timer.Stop()
 	for {
 		select {
@@ -377,18 +474,18 @@ func (circuit *Circuit) p2pIihSender() {
 				goto EXIT
 			}
 		case <-timer.C:
-			//log.Debugf("%s: timer.C", circuit.name)
+			log.Debugf("%s: timer.C", circuit.name)
 			circuit.sendIih(packet.PDU_TYPE_P2P_IIHP)
 			timer.Reset(time.Second * circuit.sendP2pIihInterval())
 		}
 	}
 EXIT:
-	log.Debugf("%s: end", circuit.name)
 }
 
 func (circuit *Circuit) l1lIihSender() {
-	log.Debugf("%s: begin", circuit.name)
-	timer := time.NewTimer(0)
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
+	timer := time.NewTimer(time.Duration(math.MaxInt64))
 	timer.Stop()
 	for {
 		select {
@@ -396,7 +493,11 @@ func (circuit *Circuit) l1lIihSender() {
 			switch msg {
 			case CIRCUIT_CH_MSG_START:
 				log.Debugf("%s: CIRCUIT_CH_MSG_START", circuit.name)
-				circuit.sendIih(packet.PDU_TYPE_LEVEL1_LAN_IIHP)
+				d := time.Second * circuit.sendL1lIihInterval() * 2
+				if circuit.uptime != nil &&
+					circuit.uptime.Add(d).Before(time.Now()) {
+					circuit.sendIih(packet.PDU_TYPE_LEVEL1_LAN_IIHP)
+				}
 				timer.Reset(time.Second * circuit.sendL1lIihInterval())
 			case CIRCUIT_CH_MSG_STOP:
 				log.Debugf("%s: CIRCUIT_CH_MSG_STOP", circuit.name)
@@ -412,12 +513,12 @@ func (circuit *Circuit) l1lIihSender() {
 		}
 	}
 EXIT:
-	log.Debugf("%s: end", circuit.name)
 }
 
 func (circuit *Circuit) l2lIihSender() {
-	log.Debugf("%s: begin", circuit.name)
-	timer := time.NewTimer(0)
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
+	timer := time.NewTimer(time.Duration(math.MaxInt64))
 	timer.Stop()
 	for {
 		select {
@@ -425,7 +526,11 @@ func (circuit *Circuit) l2lIihSender() {
 			switch msg {
 			case CIRCUIT_CH_MSG_START:
 				log.Debugf("%s: CIRCUIT_CH_MSG_START", circuit.name)
-				circuit.sendIih(packet.PDU_TYPE_LEVEL2_LAN_IIHP)
+				d := time.Second * circuit.sendL2lIihInterval() * 2
+				if circuit.uptime != nil &&
+					circuit.uptime.Add(d).Before(time.Now()) {
+					circuit.sendIih(packet.PDU_TYPE_LEVEL2_LAN_IIHP)
+				}
 				timer.Reset(time.Second * circuit.sendL2lIihInterval())
 			case CIRCUIT_CH_MSG_STOP:
 				log.Debugf("%s: CIRCUIT_CH_MSG_STOP", circuit.name)
@@ -441,12 +546,12 @@ func (circuit *Circuit) l2lIihSender() {
 		}
 	}
 EXIT:
-	log.Debugf("%s: end", circuit.name)
 }
 
 func (circuit *Circuit) l1lCsnSender() {
-	log.Debugf("%s: begin", circuit.name)
-	timer := time.NewTimer(0)
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
+	timer := time.NewTimer(time.Duration(math.MaxInt64))
 	timer.Stop()
 	for {
 		select {
@@ -470,12 +575,12 @@ func (circuit *Circuit) l1lCsnSender() {
 		}
 	}
 EXIT:
-	log.Debugf("%s: end", circuit.name)
 }
 
 func (circuit *Circuit) l2lCsnSender() {
-	log.Debugf("%s: begin", circuit.name)
-	timer := time.NewTimer(0)
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
+	timer := time.NewTimer(time.Duration(math.MaxInt64))
 	timer.Stop()
 	for {
 		select {
@@ -499,7 +604,6 @@ func (circuit *Circuit) l2lCsnSender() {
 		}
 	}
 EXIT:
-	log.Debugf("%s: end", circuit.name)
 }
 
 type receiverMessage struct {
@@ -508,7 +612,8 @@ type receiverMessage struct {
 }
 
 func (circuit *Circuit) receiver() {
-	//log.Debugf("%s: begin", circuit.name)
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	buf := make([]byte, 10240)
 	recvCh := make(chan *receiverMessage)
 	for {
@@ -521,8 +626,6 @@ func (circuit *Circuit) receiver() {
 					for circuit.receiverState == CIRCUIT_CH_STATE_RUNNING {
 						n, from, err := syscall.Recvfrom(circuit.fd, buf, 0)
 						if err != nil {
-							s := "%s: syscall.Recvfrom %v"
-							log.Debugf(s, circuit.name, err)
 							break
 						}
 						fromll := from.(*syscall.SockaddrLinklayer)
@@ -533,8 +636,6 @@ func (circuit *Circuit) receiver() {
 						}
 						pdu, err := packet.DecodePduFromBytes(buf[0+llc : n])
 						if err != nil {
-							s := "%s: packet.DecodePduFromBytes %v"
-							log.Debugf(s, circuit.name, err)
 							break
 						}
 						recvCh <- &receiverMessage{from: fromb, pdu: pdu}
@@ -572,10 +673,11 @@ func (circuit *Circuit) receiver() {
 		}
 	}
 EXIT:
-	log.Debugf("%s: end", circuit.name)
 }
 
 func (circuit *Circuit) dst(pdu packet.IsisPdu) []byte {
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	dst := packet.AllIss
 	if circuit.configBcast() {
 		if pdu.PduType() == packet.PDU_TYPE_LEVEL1_LAN_IIHP ||
@@ -595,7 +697,8 @@ func (circuit *Circuit) dst(pdu packet.IsisPdu) []byte {
 }
 
 func (circuit *Circuit) sendPdu(pdu packet.IsisPdu) {
-	//log.Debugf("")
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	data, err := pdu.Serialize()
 	if err != nil {
 		log.Infof("Serialize failed")
@@ -632,19 +735,16 @@ func (circuit *Circuit) sendPdu(pdu packet.IsisPdu) {
 }
 
 func (circuit *Circuit) changed() bool {
-	log.Debugf("%s", circuit.name)
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	changed := false
 
-	newLevel1IsReachabilities := circuit.newIsReachabilities(ISIS_LEVEL_1)
-	if circuit.isReachabilitiesChanged(ISIS_LEVEL_1, newLevel1IsReachabilities) {
-		circuit.level1IsReachabilities = newLevel1IsReachabilities
-		changed = true
-	}
-
-	newLevel2IsReachabilities := circuit.newIsReachabilities(ISIS_LEVEL_2)
-	if circuit.isReachabilitiesChanged(ISIS_LEVEL_2, newLevel2IsReachabilities) {
-		circuit.level2IsReachabilities = newLevel2IsReachabilities
-		changed = true
+	for _, level := range ISIS_LEVEL_ALL {
+		newIsReachabilities := circuit.newIsReachabilities(level)
+		if circuit.isReachabilitiesChanged(level, newIsReachabilities) {
+			circuit.isReachabilities[level] = newIsReachabilities
+			changed = true
+		}
 	}
 
 	p2pIihSenderStateOld := circuit.p2pIihSenderState
@@ -778,6 +878,8 @@ func (circuit *Circuit) changed() bool {
 }
 
 func (circuit *Circuit) sortIsReachabilities(isReachabilities []*IsReachability) {
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	for i := 0; i < len(isReachabilities); i++ {
 		for j := 0; j < len(isReachabilities); j++ {
 			if i == j {
@@ -792,18 +894,9 @@ func (circuit *Circuit) sortIsReachabilities(isReachabilities []*IsReachability)
 	}
 }
 
-func (circuit *Circuit) currentIsReachabilities(level IsisLevel) []*IsReachability {
-	var current []*IsReachability
-	switch level {
-	case ISIS_LEVEL_1:
-		current = circuit.level1IsReachabilities
-	case ISIS_LEVEL_2:
-		current = circuit.level2IsReachabilities
-	}
-	return current
-}
-
 func (circuit *Circuit) newIsReachabilities(level IsisLevel) []*IsReachability {
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
 	new := make([]*IsReachability, 0)
 	if !circuit.designated(level) {
 		return new
@@ -821,7 +914,7 @@ func (circuit *Circuit) newIsReachabilities(level IsisLevel) []*IsReachability {
 		}
 		new = append(new, isr)
 	}
-	for _, ctmp := range circuit.currentIsReachabilities(level) {
+	for _, ctmp := range circuit.isReachabilities[level] {
 		for _, ntmp := range new {
 			if bytes.Equal(ntmp.neighborId, ctmp.neighborId) {
 				ntmp.lspNumber = ctmp.lspNumber
@@ -833,7 +926,9 @@ func (circuit *Circuit) newIsReachabilities(level IsisLevel) []*IsReachability {
 }
 
 func (circuit *Circuit) isReachabilitiesChanged(level IsisLevel, new []*IsReachability) bool {
-	current := circuit.currentIsReachabilities(level)
+	log.Debugf("enter: %s", circuit.name)
+	defer log.Debugf("exit: %s", circuit.name)
+	current := circuit.isReachabilities[level]
 	if len(current) != len(new) {
 		return true
 	}

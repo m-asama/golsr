@@ -3,6 +3,8 @@ package server
 import (
 	"fmt"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/m-asama/golsr/pkg/isis/packet"
 )
 
@@ -27,6 +29,8 @@ func (adjUsage AdjUsage) String() string {
 	case ADJ_USAGE_LEVEL1AND2:
 		return "ADJ_USAGE_LEVEL1AND2"
 	}
+	log.Infof("")
+	panic("")
 	return fmt.Sprintf("AdjUsage(%d)", adjUsage)
 }
 
@@ -48,6 +52,8 @@ func (adjType AdjType) String() string {
 	case ADJ_TYPE_P2P:
 		return "ADJ_TYPE_P2P"
 	}
+	log.Infof("")
+	panic("")
 	return fmt.Sprintf("AdjType(%d)", adjType)
 }
 
@@ -71,6 +77,8 @@ type Adjacency struct {
 }
 
 func NewAdjacency(circuit *Circuit) (*Adjacency, error) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	adjacency := &Adjacency{}
 	adjacency.areaAddresses = make([][]byte, 0)
 	adjacency.ipv4Addresses = make([]uint32, 0)
@@ -80,6 +88,18 @@ func NewAdjacency(circuit *Circuit) (*Adjacency, error) {
 	adjacency.lanId = make([]byte, 0)
 	adjacency.circuit = circuit
 	return adjacency, nil
+}
+
+func (adjacency *Adjacency) level(level IsisLevel) bool {
+	switch level {
+	case ISIS_LEVEL_1:
+		return adjacency.level1()
+	case ISIS_LEVEL_2:
+		return adjacency.level2()
+	}
+	log.Infof("")
+	panic("")
+	return false
 }
 
 func (adjacency *Adjacency) level1() bool {
