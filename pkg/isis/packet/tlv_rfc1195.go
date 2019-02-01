@@ -76,6 +76,14 @@ func NewIpInternalReachInfoTlv() (*ipInternalReachInfoTlv, error) {
 	return &tlv, nil
 }
 
+func (tlv *ipInternalReachInfoTlv) IpSubnets() []*ipInternalReachInfoIpSubnet {
+	subnets := make([]*ipInternalReachInfoIpSubnet, 0)
+	for _, s := range tlv.ipSubnets {
+		subnets = append(subnets, &s)
+	}
+	return subnets
+}
+
 func (tlv *ipInternalReachInfoTlv) AddIpSubnet(ipSubnet *ipInternalReachInfoIpSubnet) error {
 	length := 0
 	for _, istmp := range tlv.ipSubnets {

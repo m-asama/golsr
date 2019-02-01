@@ -29,6 +29,7 @@ const (
 	UPDATE_CH_MSG_TYPE_ADJACENCY_UP
 	UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN
 	UPDATE_CH_MSG_TYPE_ADJACENCY_CHANGED
+	UPDATE_CH_MSG_TYPE_LSP_CHANGED
 	UPDATE_CH_MSG_TYPE_EXIT
 )
 
@@ -60,6 +61,8 @@ func (msgType UpdateChMsgType) String() string {
 		return "UPDATE_CH_MSG_TYPE_ADJACENCY_CHANGED"
 	case UPDATE_CH_MSG_TYPE_EXIT:
 		return "UPDATE_CH_MSG_TYPE_EXIT"
+	case UPDATE_CH_MSG_TYPE_LSP_CHANGED:
+		return "UPDATE_CH_MSG_TYPE_LSP_CHANGED"
 	}
 	log.Infof("")
 	panic("")
@@ -90,6 +93,7 @@ func (isis *IsisServer) updateProcess(wg *sync.WaitGroup) {
 	wg.Wait()
 	for {
 		circuitChanged := false
+		lspChanged := false
 		msg := <-isis.updateCh
 		log.Debugf("%s", msg)
 		switch msg.msgType {
@@ -110,10 +114,12 @@ func (isis *IsisServer) updateProcess(wg *sync.WaitGroup) {
 		case UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN:
 			isis.adjacencyDown(msg.adjacency)
 		case UPDATE_CH_MSG_TYPE_ADJACENCY_CHANGED:
+		case UPDATE_CH_MSG_TYPE_LSP_CHANGED:
+			lspChanged = true
 		case UPDATE_CH_MSG_TYPE_EXIT:
 			goto EXIT
 		}
-		if isis.changed() || circuitChanged {
+		if isis.changed() || circuitChanged || lspChanged {
 			isis.updateOriginLsps()
 			isis.decisionCh <- &DecisionChMsg{
 				msgType: DECISION_CH_MSG_TYPE_DO,

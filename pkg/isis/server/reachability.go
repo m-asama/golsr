@@ -275,3 +275,18 @@ func (isis *IsisServer) ipv6ReachabilitiesChanged(level IsisLevel, new []*Ipv6Re
 	}
 	return false
 }
+
+type Reachabilities struct {
+	isReachabilities   []*IsReachability
+	ipv4Reachabilities []*Ipv4Reachability
+	ipv6Reachabilities []*Ipv6Reachability
+}
+
+func NewReachabilities() *Reachabilities {
+	reachabilities := &Reachabilities{
+		isReachabilities:   make([]*IsReachability, 0),
+		ipv4Reachabilities: make([]*Ipv4Reachability, 0),
+		ipv6Reachabilities: make([]*Ipv6Reachability, 0),
+	}
+	return reachabilities
+}

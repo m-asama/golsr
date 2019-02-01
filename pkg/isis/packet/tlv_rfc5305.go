@@ -72,6 +72,12 @@ func NewExtendedIsReachabilityNeighbour(neighbourId []byte) (*extendedIsReachabi
 	return &neighbour, nil
 }
 
+func (neighbour *extendedIsReachabilityNeighbour) NeighbourId() []byte {
+	neighbourId := make([]byte, len(neighbour.neighbourId))
+	copy(neighbourId, neighbour.neighbourId)
+	return neighbourId
+}
+
 func (neighbour *extendedIsReachabilityNeighbour) SetLengthOfSubtlvs() {
 	length := 0
 	if neighbour.adminGroupSubTlv != nil {
@@ -235,6 +241,16 @@ func (tlv *extendedIsReachabilityTlv) NeighbourIds() [][]byte {
 		neighbourIds = append(neighbourIds, neighbourId)
 	}
 	return neighbourIds
+}
+
+func (tlv *extendedIsReachabilityTlv) Neighbours() []*extendedIsReachabilityNeighbour {
+	neighbours := make([]*extendedIsReachabilityNeighbour, 0)
+	for _, ntmp := range tlv.neighbours {
+		n := &extendedIsReachabilityNeighbour{}
+		*n = ntmp
+		neighbours = append(neighbours, n)
+	}
+	return neighbours
 }
 
 func (tlv *extendedIsReachabilityTlv) SetLength() {
@@ -626,6 +642,14 @@ func NewExtendedIpReachabilityIpv4Prefix(ipv4Prefix uint32, prefixLength uint8) 
 	return &ip4p, nil
 }
 
+func (ipv4Prefix *extendedIpReachabilityIpv4Prefix) Ipv4Prefix() uint32 {
+	return ipv4Prefix.ipv4Prefix
+}
+
+func (ipv4Prefix *extendedIpReachabilityIpv4Prefix) PrefixLength() uint8 {
+	return ipv4Prefix.prefixLength
+}
+
 type extendedIpReachabilityTlv struct {
 	base         tlvBase
 	ipv4Prefixes []extendedIpReachabilityIpv4Prefix
@@ -652,6 +676,16 @@ func (tlv *extendedIpReachabilityTlv) SetLength() {
 		}
 	}
 	tlv.base.length = uint8(length)
+}
+
+func (tlv *extendedIpReachabilityTlv) Ipv4Prefixes() []*extendedIpReachabilityIpv4Prefix {
+	prefixes := make([]*extendedIpReachabilityIpv4Prefix, 0)
+	for _, ptmp := range tlv.ipv4Prefixes {
+		p := &extendedIpReachabilityIpv4Prefix{}
+		*p = ptmp
+		prefixes = append(prefixes, p)
+	}
+	return prefixes
 }
 
 func (tlv *extendedIpReachabilityTlv) AddIpv4Prefix(ipv4Prefix *extendedIpReachabilityIpv4Prefix) error {

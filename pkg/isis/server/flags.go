@@ -10,7 +10,7 @@ import (
 
 func (isis *IsisServer) srmFlag(ls *Ls, circuit *Circuit) bool {
 	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
-	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("exit: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	_, ok := ls.srmFlags[circuit.ifIndex()]
 	if ok {
 		return true
@@ -20,7 +20,7 @@ func (isis *IsisServer) srmFlag(ls *Ls, circuit *Circuit) bool {
 
 func (isis *IsisServer) setSrmFlag(ls *Ls, circuit *Circuit) {
 	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
-	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("exit: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	if ls.pdu.SequenceNumber == 0 {
 		log.Debugf("ls.pdu.SequenceNumber == 0")
 		return
@@ -34,7 +34,7 @@ func (isis *IsisServer) setSrmFlag(ls *Ls, circuit *Circuit) {
 
 func (isis *IsisServer) setSrmFlagAll(ls *Ls) {
 	log.Debugf("enter: lspid=%x", ls.pdu.LspId())
-	defer log.Debugf("enter: lspid=%x", ls.pdu.LspId())
+	defer log.Debugf("exit: lspid=%x", ls.pdu.LspId())
 	if ls.pdu.SequenceNumber == 0 {
 		return
 	}
@@ -48,7 +48,7 @@ func (isis *IsisServer) setSrmFlagAll(ls *Ls) {
 
 func (isis *IsisServer) setSrmFlagOtherThan(ls *Ls, circuit *Circuit) {
 	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
-	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("exit: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	if ls.pdu.SequenceNumber == 0 {
 		return
 	}
@@ -77,13 +77,13 @@ func (isis *IsisServer) setSrmFlagForCircuit(circuit *Circuit) {
 
 func (isis *IsisServer) clearSrmFlag(ls *Ls, circuit *Circuit) {
 	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
-	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("exit: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	delete(ls.srmFlags, circuit.ifIndex())
 }
 
 func (isis *IsisServer) ssnFlag(ls *Ls, circuit *Circuit) bool {
 	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
-	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("exit: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	_, ok := ls.ssnFlags[circuit.ifIndex()]
 	if ok {
 		return true
@@ -93,7 +93,7 @@ func (isis *IsisServer) ssnFlag(ls *Ls, circuit *Circuit) bool {
 
 func (isis *IsisServer) setSsnFlag(ls *Ls, circuit *Circuit) {
 	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
-	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("exit: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	if !circuit.ready() {
 		log.Debugf("!circuit.ready()")
 		return
@@ -103,13 +103,13 @@ func (isis *IsisServer) setSsnFlag(ls *Ls, circuit *Circuit) {
 
 func (isis *IsisServer) clearSsnFlag(ls *Ls, circuit *Circuit) {
 	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
-	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("exit: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	delete(ls.ssnFlags, circuit.ifIndex())
 }
 
 func (isis *IsisServer) clearSsnFlagOtherThan(ls *Ls, circuit *Circuit) {
 	log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
-	defer log.Debugf("enter: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
+	defer log.Debugf("exit: lspid=%x circuit=%s", ls.pdu.LspId(), circuit.name)
 	for _, cirtmp := range isis.circuitDb {
 		if cirtmp.ifIndex() == circuit.ifIndex() {
 			continue

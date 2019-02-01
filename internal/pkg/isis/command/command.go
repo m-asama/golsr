@@ -16,13 +16,13 @@ import (
 )
 
 var globalOpts struct {
-	Host    string
-	Port    int
-	Debug   bool
-	Quiet   bool
-	Json    bool
-	GenCmpl bool
-	//BashCmplFile string
+	Host         string
+	Port         int
+	Debug        bool
+	Quiet        bool
+	Json         bool
+	GenCmpl      bool
+	BashCmplFile string
 }
 
 var client api.GoisisApiClient
@@ -75,11 +75,11 @@ func NewRootCmd() *cobra.Command {
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			//			if globalOpts.GenCmpl {
-			//				cmd.GenBashCompletionFile(globalOpts.BashCmplFile)
-			//			} else {
-			cmd.HelpFunc()(cmd, args)
-			//			}
+			if globalOpts.GenCmpl {
+				cmd.GenBashCompletionFile(globalOpts.BashCmplFile)
+			} else {
+				cmd.HelpFunc()(cmd, args)
+			}
 		},
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {
 		},
@@ -91,7 +91,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().BoolVarP(&globalOpts.Debug, "debug", "d", false, "use debug")
 	rootCmd.PersistentFlags().BoolVarP(&globalOpts.Quiet, "quiet", "q", false, "use quiet")
 	rootCmd.PersistentFlags().BoolVarP(&globalOpts.GenCmpl, "gen-cmpl", "c", false, "generate completion file")
-	//rootCmd.PersistentFlags().StringVarP(&globalOpts.BashCmplFile, "bash-cmpl-file", "", "goisis-completion.bash", "bash cmpl filename")
+	rootCmd.PersistentFlags().StringVarP(&globalOpts.BashCmplFile, "bash-cmpl-file", "", "goisis-completion.bash", "bash cmpl filename")
 
 	enableCmd := &cobra.Command{
 		Use: "enable",

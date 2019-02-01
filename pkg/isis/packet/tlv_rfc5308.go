@@ -48,6 +48,14 @@ func NewIpv6ReachabilityIpv6Prefix(ipv6Prefix [4]uint32, prefixLength uint8) (*i
 	return &ipv6p, nil
 }
 
+func (ipv6Prefix *ipv6ReachabilityIpv6Prefix) Ipv6Prefix() [4]uint32 {
+	return ipv6Prefix.ipv6Prefix
+}
+
+func (ipv6Prefix *ipv6ReachabilityIpv6Prefix) PrefixLength() uint8 {
+	return ipv6Prefix.prefixLength
+}
+
 type ipv6ReachabilityTlv struct {
 	base         tlvBase
 	ipv6Prefixes []ipv6ReachabilityIpv6Prefix
@@ -74,6 +82,14 @@ func (tlv *ipv6ReachabilityTlv) SetLength() {
 		}
 	}
 	tlv.base.length = uint8(length)
+}
+
+func (tlv *ipv6ReachabilityTlv) Ipv6Prefixes() []*ipv6ReachabilityIpv6Prefix {
+	prefixes := make([]*ipv6ReachabilityIpv6Prefix, 0)
+	for _, p := range tlv.ipv6Prefixes {
+		prefixes = append(prefixes, &p)
+	}
+	return prefixes
 }
 
 func (tlv *ipv6ReachabilityTlv) AddIpv6Prefix(ipv6Prefix *ipv6ReachabilityIpv6Prefix) error {

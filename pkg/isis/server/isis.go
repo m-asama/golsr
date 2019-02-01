@@ -22,6 +22,20 @@ const (
 	ISIS_LEVEL_NUM
 )
 
+func (level IsisLevel) String() string {
+	switch level {
+	case ISIS_LEVEL_1:
+		return "ISIS_LEVEL_1"
+	case ISIS_LEVEL_2:
+		return "ISIS_LEVEL_2"
+	case ISIS_LEVEL_NUM:
+		return "ISIS_LEVEL_NUM"
+	}
+	log.Infof("")
+	panic("")
+	return ""
+}
+
 var ISIS_LEVEL_ALL = []IsisLevel{ISIS_LEVEL_1, ISIS_LEVEL_2}
 
 func (level *IsisLevel) pduTypeLsp() packet.PduType {
@@ -114,6 +128,8 @@ type IsisServer struct {
 	ipv6Reachabilities [ISIS_LEVEL_NUM][]*Ipv6Reachability
 
 	lsDb      [ISIS_LEVEL_NUM][]*Ls
+	ipv4RiDb  [ISIS_LEVEL_NUM]map[[SPF_ID_KEY_LENGTH]byte]*Ipv4Ri
+	ipv6RiDb  [ISIS_LEVEL_NUM]map[[SPF_ID_KEY_LENGTH]byte]*Ipv6Ri
 	circuitDb map[int]*Circuit
 
 	lock sync.RWMutex
@@ -139,6 +155,8 @@ func NewIsisServer(configFile, configType string) *IsisServer {
 		isis.ipv4Reachabilities[level] = make([]*Ipv4Reachability, 0)
 		isis.ipv6Reachabilities[level] = make([]*Ipv6Reachability, 0)
 		isis.lsDb[level] = make([]*Ls, 0)
+		isis.ipv4RiDb[level] = make(map[[SPF_ID_KEY_LENGTH]byte]*Ipv4Ri)
+		isis.ipv6RiDb[level] = make(map[[SPF_ID_KEY_LENGTH]byte]*Ipv6Ri)
 	}
 	return isis
 }
