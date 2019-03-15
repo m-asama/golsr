@@ -106,8 +106,8 @@ type IsisChMsg uint8
 
 const (
 	_ IsisChMsg = iota
-	ISIS_CH_MSG_ENABLE
-	ISIS_CH_MSG_DISABLE
+	//ISIS_CH_MSG_ENABLE
+	//ISIS_CH_MSG_DISABLE
 	ISIS_CH_MSG_EXIT
 )
 
@@ -199,23 +199,25 @@ func (isis *IsisServer) Serve(wg *sync.WaitGroup) {
 			}).Info("Do nothing")
 		case msg := <-isis.isisCh:
 			switch msg {
-			case ISIS_CH_MSG_ENABLE:
-				log.Debugf("ISIS_CH_MSG_ENABLE")
-			case ISIS_CH_MSG_DISABLE:
-				log.Debugf("ISIS_CH_MSG_DISABLE")
+			/*
+				case ISIS_CH_MSG_ENABLE:
+					log.Debugf("ISIS_CH_MSG_ENABLE")
+				case ISIS_CH_MSG_DISABLE:
+					log.Debugf("ISIS_CH_MSG_DISABLE")
+			*/
 			case ISIS_CH_MSG_EXIT:
 				log.Debugf("ISIS_CH_MSG_EXIT")
 				periodicCh <- struct{}{}
 				goto EXIT
 			}
 		case c := <-configCh:
-			isis.configChanged(c)
+			isis.handleConfigChanged(c)
 			if !configReady {
 				updateWg.Done()
 				configReady = true
 			}
 		case k := <-kernelCh:
-			isis.kernelChanged(k)
+			isis.handleKernelChanged(k)
 			if !kernelReady {
 				updateWg.Done()
 				kernelReady = true
@@ -235,14 +237,20 @@ func (isis *IsisServer) SetEnable() {
 	log.Debugf("enter")
 	defer log.Debugf("exit")
 	*isis.config.Config.Enable = true
-	isis.isisCh <- ISIS_CH_MSG_ENABLE
+	//isis.isisCh <- ISIS_CH_MSG_ENABLE
+	isis.updateChSend(&UpdateChMsg{
+		msgType: UPDATE_CH_MSG_TYPE_ISIS_ENABLE,
+	})
 }
 
 func (isis *IsisServer) SetDisable() {
 	log.Debugf("enter")
 	defer log.Debugf("exit")
 	*isis.config.Config.Enable = false
-	isis.isisCh <- ISIS_CH_MSG_DISABLE
+	//isis.isisCh <- ISIS_CH_MSG_DISABLE
+	isis.updateChSend(&UpdateChMsg{
+		msgType: UPDATE_CH_MSG_TYPE_ISIS_DISABLE,
+	})
 }
 
 func (isis *IsisServer) enable() bool {
@@ -422,10 +430,9 @@ func (isis *IsisServer) removeCircuit(name string) {
 	delete(isis.circuitDb, circuit.ifKernel.IfIndex)
 }
 
-func (isis *IsisServer) configChanged(newConfig *config.IsisConfig) {
+func (isis *IsisServer) handleConfigChanged(newConfig *config.IsisConfig) {
 	log.Debugf("enter")
 	defer log.Debugf("exit")
-	//s.fillConfigDefaults(newConfig)
 	added := make(map[string]*config.Interface)
 	removed := make(map[string]*config.Interface)
 	for _, iface := range isis.config.Interfaces {
@@ -454,12 +461,12 @@ func (isis *IsisServer) configChanged(newConfig *config.IsisConfig) {
 		}
 	}
 	isis.config = newConfig
-	isis.updateCh <- &UpdateChMsg{
+	isis.updateChSend(&UpdateChMsg{
 		msgType: UPDATE_CH_MSG_TYPE_CONFIG_CHANGED,
-	}
+	})
 }
 
-func (isis *IsisServer) kernelChanged(newKernel *kernel.KernelStatus) {
+func (isis *IsisServer) handleKernelChanged(newKernel *kernel.KernelStatus) {
 	log.Debugf("enter")
 	defer log.Debugf("exit")
 	removed := make(map[string]*config.Interface)
@@ -489,7 +496,7 @@ func (isis *IsisServer) kernelChanged(newKernel *kernel.KernelStatus) {
 		}
 	}
 	isis.kernel = newKernel
-	isis.updateCh <- &UpdateChMsg{
+	isis.updateChSend(&UpdateChMsg{
 		msgType: UPDATE_CH_MSG_TYPE_KERNEL_CHANGED,
-	}
+	})
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"math"
+	"sort"
 	"syscall"
 	"time"
 
@@ -140,14 +141,6 @@ func NewCircuit(isis *IsisServer, ifKernel *kernel.Interface, ifConfig *config.I
 		circuit.isReachabilities[level] = make([]*IsReachability, 0)
 		//circuit.previousIsReachabilities[level] = make([]*IsReachability, 0)
 	}
-	if ifKernel.Up {
-		go func() {
-			isis.updateCh <- &UpdateChMsg{
-				msgType: UPDATE_CH_MSG_TYPE_CIRCUIT_CHANGED,
-				circuit: circuit,
-			}
-		}()
-	}
 	return circuit
 }
 
@@ -181,12 +174,20 @@ func (circuit *Circuit) SetEnable() {
 	log.Debugf("enter: %s", circuit.name)
 	defer log.Debugf("exit: %s", circuit.name)
 	*circuit.ifConfig.Config.Enable = true
+	circuit.isis.updateChSend(&UpdateChMsg{
+		msgType: UPDATE_CH_MSG_TYPE_CIRCUIT_ENABLE,
+		circuit: circuit,
+	})
 }
 
 func (circuit *Circuit) SetDisable() {
 	log.Debugf("enter: %s", circuit.name)
 	defer log.Debugf("exit: %s", circuit.name)
 	*circuit.ifConfig.Config.Enable = false
+	circuit.isis.updateChSend(&UpdateChMsg{
+		msgType: UPDATE_CH_MSG_TYPE_CIRCUIT_DISABLE,
+		circuit: circuit,
+	})
 }
 
 func (circuit *Circuit) SetPassive() {
@@ -210,7 +211,8 @@ func (circuit *Circuit) passive() bool {
 }
 
 func (circuit *Circuit) ready() bool {
-	return circuit.isis.ready() && circuit.enable() && !circuit.passive()
+	return circuit.isis.ready() &&
+		circuit.enable() && !circuit.passive() && circuit.kernelUp()
 }
 
 func (circuit *Circuit) level1() bool {
@@ -738,7 +740,6 @@ func (circuit *Circuit) changed() bool {
 	log.Debugf("enter: %s", circuit.name)
 	defer log.Debugf("exit: %s", circuit.name)
 	changed := false
-
 	for _, level := range ISIS_LEVEL_ALL {
 		newIsReachabilities := circuit.newIsReachabilities(level)
 		if circuit.isReachabilitiesChanged(level, newIsReachabilities) {
@@ -746,7 +747,11 @@ func (circuit *Circuit) changed() bool {
 			changed = true
 		}
 	}
+	//circuit.handleStateTransition()
+	return changed
+}
 
+func (circuit *Circuit) handleStateTransition() {
 	p2pIihSenderStateOld := circuit.p2pIihSenderState
 	l1lIihSenderStateOld := circuit.l1lIihSenderState
 	l2lIihSenderStateOld := circuit.l2lIihSenderState
@@ -874,24 +879,6 @@ func (circuit *Circuit) changed() bool {
 		log.Debugf("%s: socket close", circuit.name)
 		syscall.Close(circuit.fd)
 	}
-	return changed
-}
-
-func (circuit *Circuit) sortIsReachabilities(isReachabilities []*IsReachability) {
-	log.Debugf("enter: %s", circuit.name)
-	defer log.Debugf("exit: %s", circuit.name)
-	for i := 0; i < len(isReachabilities); i++ {
-		for j := 0; j < len(isReachabilities); j++ {
-			if i == j {
-				continue
-			}
-			if bytes.Compare(isReachabilities[i].neighborId, isReachabilities[j].neighborId) > 0 {
-				tmp := isReachabilities[i]
-				isReachabilities[i] = isReachabilities[j]
-				isReachabilities[j] = tmp
-			}
-		}
-	}
 }
 
 func (circuit *Circuit) newIsReachabilities(level IsisLevel) []*IsReachability {
@@ -921,7 +908,8 @@ func (circuit *Circuit) newIsReachabilities(level IsisLevel) []*IsReachability {
 			}
 		}
 	}
-	circuit.sortIsReachabilities(new)
+	//circuit.sortIsReachabilities(new)
+	sort.Sort(IsReachabilities(new))
 	return new
 }
 

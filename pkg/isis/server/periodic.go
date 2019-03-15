@@ -7,8 +7,8 @@ import (
 )
 
 func (isis *IsisServer) lsDbIter(ls *Ls) bool {
-	//log.Debugf("enter")
-	//defer log.Debugf("exit")
+	log.Debugf("enter")
+	defer log.Debugf("exit")
 	changed := false
 	if ls.pdu.RemainingLifetime > 0 {
 		ls.pdu.RemainingLifetime--
@@ -20,7 +20,7 @@ func (isis *IsisServer) lsDbIter(ls *Ls) bool {
 			changed = true
 		}
 		if ls.expired.Before(time.Now().Add(-ZERO_AGE_LIFETIME)) {
-			isis.deleteLsp(ls)
+			isis.deleteLsp(ls, true)
 		}
 	}
 	return changed
@@ -55,10 +55,10 @@ func (isis *IsisServer) adjDbWalk() bool {
 			}
 			if adjacency.holdingTime == 0 {
 				circuit.removeAdjacency(adjacency.lanAddress, adjacency.adjType)
-				circuit.isis.updateCh <- &UpdateChMsg{
+				circuit.isis.updateChSend(&UpdateChMsg{
 					msgType:   UPDATE_CH_MSG_TYPE_ADJACENCY_DOWN,
 					adjacency: adjacency,
-				}
+				})
 				changed = true
 			}
 		}

@@ -36,6 +36,9 @@ func (isis *IsisServer) newIsReachabilities(level IsisLevel) []*IsReachability {
 	defer log.Debugf("exit")
 	new := make([]*IsReachability, 0)
 	for _, circuit := range isis.circuitDb {
+		if !circuit.enable() || !circuit.kernelUp() {
+			continue
+		}
 		if circuit.configBcast() {
 			neighborId := make([]byte, packet.NEIGHBOUR_ID_LENGTH)
 			copy(neighborId, circuit.lanId(level))
@@ -130,6 +133,9 @@ func (isis *IsisServer) newIpv4Reachabilities(level IsisLevel) []*Ipv4Reachabili
 		if !ok {
 			continue
 		}
+		if !circuit.enable() || !circuit.kernelUp() {
+			continue
+		}
 		for _, ipv4Address := range iface.Ipv4Addresses {
 			ipv4r := &Ipv4Reachability{
 				ipv4Prefix:   ipv4Address.Address,
@@ -222,6 +228,9 @@ func (isis *IsisServer) newIpv6Reachabilities(level IsisLevel) []*Ipv6Reachabili
 		if !ok {
 			continue
 		}
+		if !circuit.enable() || !circuit.kernelUp() {
+			continue
+		}
 		for _, ipv6Address := range iface.Ipv6Addresses {
 			ipv6r := &Ipv6Reachability{
 				ipv6Prefix: [4]uint32{
@@ -289,4 +298,43 @@ func NewReachabilities() *Reachabilities {
 		ipv6Reachabilities: make([]*Ipv6Reachability, 0),
 	}
 	return reachabilities
+}
+
+func (rs *Reachabilities) addIsReachability(ir *IsReachability) {
+	newIrs := make([]*IsReachability, 0)
+	for _, irTmp := range rs.isReachabilities {
+		if bytes.Compare(irTmp.neighborId, ir.neighborId) != 0 &&
+			irTmp.metric != ir.metric {
+			newIrs = append(newIrs, irTmp)
+		}
+	}
+	newIrs = append(newIrs, ir)
+	rs.isReachabilities = newIrs
+}
+
+func (rs *Reachabilities) addIpv4Reachability(ir *Ipv4Reachability) {
+	newIrs := make([]*Ipv4Reachability, 0)
+	for _, irTmp := range rs.ipv4Reachabilities {
+		if irTmp.ipv4Prefix != ir.ipv4Prefix &&
+			irTmp.prefixLength != ir.prefixLength {
+			newIrs = append(newIrs, irTmp)
+		}
+	}
+	newIrs = append(newIrs, ir)
+	rs.ipv4Reachabilities = newIrs
+}
+
+func (rs *Reachabilities) addIpv6Reachability(ir *Ipv6Reachability) {
+	newIrs := make([]*Ipv6Reachability, 0)
+	for _, irTmp := range rs.ipv6Reachabilities {
+		if irTmp.ipv6Prefix[0] != ir.ipv6Prefix[0] &&
+			irTmp.ipv6Prefix[1] != ir.ipv6Prefix[1] &&
+			irTmp.ipv6Prefix[2] != ir.ipv6Prefix[2] &&
+			irTmp.ipv6Prefix[3] != ir.ipv6Prefix[3] &&
+			irTmp.prefixLength != ir.prefixLength {
+			newIrs = append(newIrs, irTmp)
+		}
+	}
+	newIrs = append(newIrs, ir)
+	rs.ipv6Reachabilities = newIrs
 }

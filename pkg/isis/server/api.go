@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 
 	api "github.com/m-asama/golsr/api"
+	"github.com/m-asama/golsr/internal/pkg/util"
 	"github.com/m-asama/golsr/pkg/isis/packet"
 )
 
@@ -80,10 +81,6 @@ func (s *ApiServer) Enable(ctx context.Context, in *api.EnableRequest) (*api.Ena
 		response.Result = "already enabled"
 	} else {
 		s.isisServer.SetEnable()
-		//s.isisServer.checkChanged()
-		s.isisServer.updateCh <- &UpdateChMsg{
-			msgType: UPDATE_CH_MSG_TYPE_ISIS_ENABLE,
-		}
 		response.Result = "enabled"
 	}
 	return response, nil
@@ -95,10 +92,6 @@ func (s *ApiServer) Disable(ctx context.Context, in *api.DisableRequest) (*api.D
 	response := &api.DisableResponse{}
 	if s.isisServer.enable() {
 		s.isisServer.SetDisable()
-		//s.isisServer.checkChanged()
-		s.isisServer.updateCh <- &UpdateChMsg{
-			msgType: UPDATE_CH_MSG_TYPE_ISIS_DISABLE,
-		}
 		response.Result = "disabled"
 	} else {
 		response.Result = "already disabled"
@@ -118,11 +111,6 @@ func (s *ApiServer) InterfaceEnable(ctx context.Context, in *api.InterfaceEnable
 				response.Result = "already enabled"
 			} else {
 				iface.SetEnable()
-				//s.isisServer.checkChanged()
-				s.isisServer.updateCh <- &UpdateChMsg{
-					msgType: UPDATE_CH_MSG_TYPE_CIRCUIT_UP,
-					circuit: iface,
-				}
 				response.Result = "enabled"
 			}
 		}
@@ -143,11 +131,6 @@ func (s *ApiServer) InterfaceDisable(ctx context.Context, in *api.InterfaceDisab
 			found = true
 			if iface.enable() {
 				iface.SetDisable()
-				//s.isisServer.checkChanged()
-				s.isisServer.updateCh <- &UpdateChMsg{
-					msgType: UPDATE_CH_MSG_TYPE_CIRCUIT_DOWN,
-					circuit: iface,
-				}
 				response.Result = "disabled"
 			} else {
 				response.Result = "already disabled"
@@ -169,6 +152,8 @@ func (s *ApiServer) AdjacencyGet(ctx context.Context, in *api.AdjacencyGetReques
 func (s *ApiServer) AdjacencyMonitor(in *api.AdjacencyMonitorRequest, stream api.GoisisApi_AdjacencyMonitorServer) error {
 	log.Debugf("enter")
 	defer log.Debugf("exit")
+	s.isisServer.lock.RLock()
+	defer s.isisServer.lock.RUnlock()
 	for _, iface := range s.isisServer.circuitDb {
 		if in.Interface != "all" && iface.name != in.Interface {
 			continue
@@ -217,20 +202,32 @@ func fillLsp(apiLsp *api.Lsp, packetLsp *packet.LsPdu) {
 	apiLsp.Checksum = uint32(packetLsp.Checksum)
 	apiLsp.RemainingLifetime = uint32(packetLsp.RemainingLifetime)
 	apiLsp.Sequence = packetLsp.SequenceNumber
+	//apiLsp.Attributes
+	apiLsp.Ipv4Addresses = make([]string, 0)
+	ipInternalReachInfoTlvs, _ := packetLsp.IpInternalReachInfoTlvs()
+	for _, tlv := range ipInternalReachInfoTlvs {
+		for _, ip4 := range tlv.IpSubnets() {
+			ip4a := util.Ipv4Uint32ToString(ip4.IpAddress)
+			ip4l := util.Snmask42plen(ip4.SubnetMask)
+			Ipv4Address := fmt.Sprintf("%s/%d", ip4a, ip4l)
+			apiLsp.Ipv4Addresses = append(apiLsp.Ipv4Addresses, Ipv4Address)
+		}
+	}
+	apiLsp.Ipv6Addresses = make([]string, 0)
 }
 
 func (s *ApiServer) DbLsMonitor(in *api.DbLsMonitorRequest, stream api.GoisisApi_DbLsMonitorServer) error {
 	log.Debugf("enter")
 	defer log.Debugf("exit")
+	s.isisServer.lock.RLock()
+	defer s.isisServer.lock.RUnlock()
 	if in.Level == "level-1" || in.Level == "all" {
 		lsps := make([]*api.Lsp, 0)
-		s.isisServer.lock.Lock()
 		for _, lsptmp := range s.isisServer.lsDb[ISIS_LEVEL_1] {
 			lsp := &api.Lsp{}
 			fillLsp(lsp, lsptmp.pdu)
 			lsps = append(lsps, lsp)
 		}
-		s.isisServer.lock.Unlock()
 		log.Debugf("len(lsps) = %d", len(lsps))
 		r := &api.DbLsMonitorResponse{
 			Lsp: lsps,
@@ -239,13 +236,11 @@ func (s *ApiServer) DbLsMonitor(in *api.DbLsMonitorRequest, stream api.GoisisApi
 	}
 	if in.Level == "level-2" || in.Level == "all" {
 		lsps := make([]*api.Lsp, 0)
-		s.isisServer.lock.Lock()
 		for _, lsptmp := range s.isisServer.lsDb[ISIS_LEVEL_2] {
 			lsp := &api.Lsp{}
 			fillLsp(lsp, lsptmp.pdu)
 			lsps = append(lsps, lsp)
 		}
-		s.isisServer.lock.Unlock()
 		log.Debugf("len(lsps) = %d", len(lsps))
 		r := &api.DbLsMonitorResponse{
 			Lsp: lsps,

@@ -8,6 +8,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/m-asama/golsr/internal/pkg/util"
 	"github.com/m-asama/golsr/pkg/isis/packet"
 )
 
@@ -80,19 +81,23 @@ func (isis *IsisServer) insertLsp(lsp *packet.LsPdu, origin bool, generated *tim
 	ls, _ := NewLs(lsp, origin, generated)
 	lsDb = append(lsDb, ls)
 	isis.lsDb[level] = lsDb
-	go func() { isis.updateCh <- &UpdateChMsg{msgType: UPDATE_CH_MSG_TYPE_LSP_CHANGED} }()
+	isis.updateChSend(&UpdateChMsg{
+		msgType: UPDATE_CH_MSG_TYPE_LSDB_CHANGED,
+	})
 	return ls
 }
 
-func (isis *IsisServer) deleteLsp(ls *Ls) {
+func (isis *IsisServer) deleteLsp(ls *Ls, hasLock bool) {
 	log.Debugf("enter: lspid=%x", ls.pdu.LspId())
 	defer log.Debugf("exit: lspid=%x", ls.pdu.LspId())
 	level, err := isis.lspLevel(ls.pdu)
 	if err != nil {
 		return
 	}
-	isis.lock.Lock()
-	defer isis.lock.Unlock()
+	if !hasLock {
+		isis.lock.Lock()
+		defer isis.lock.Unlock()
+	}
 	lsDb := make([]*Ls, 0)
 	for _, lstmp := range isis.lsDb[level] {
 		if lstmp != ls {
@@ -100,14 +105,16 @@ func (isis *IsisServer) deleteLsp(ls *Ls) {
 		}
 	}
 	isis.lsDb[level] = lsDb
-	go func() { isis.updateCh <- &UpdateChMsg{msgType: UPDATE_CH_MSG_TYPE_LSP_CHANGED} }()
+	isis.updateChSend(&UpdateChMsg{
+		msgType: UPDATE_CH_MSG_TYPE_LSDB_CHANGED,
+	})
 }
 
 func (isis *IsisServer) lookupLsp(level IsisLevel, lspId []byte) *Ls {
 	log.Debugf("enter: level=%s lspid=%x", level, lspId)
 	defer log.Debugf("exit: level=%s lspid=%x", level, lspId)
-	isis.lock.Lock()
-	defer isis.lock.Unlock()
+	isis.lock.RLock()
+	defer isis.lock.RUnlock()
 	for _, lstmp := range isis.lsDb[level] {
 		if bytes.Equal(lstmp.pdu.LspId(), lspId) {
 			return lstmp
@@ -119,8 +126,8 @@ func (isis *IsisServer) lookupLsp(level IsisLevel, lspId []byte) *Ls {
 func (isis *IsisServer) originLss(level IsisLevel, nodeId uint8) []*Ls {
 	log.Debugf("enter")
 	defer log.Debugf("exit")
-	isis.lock.Lock()
-	defer isis.lock.Unlock()
+	isis.lock.RLock()
+	defer isis.lock.RUnlock()
 	lss := make([]*Ls, 0)
 	for _, lstmp := range isis.lsDb[level] {
 		if !lstmp.origin ||
@@ -137,8 +144,8 @@ func (isis *IsisServer) originLss(level IsisLevel, nodeId uint8) []*Ls {
 func (isis *IsisServer) getReachabilities(level IsisLevel, neighId [packet.NEIGHBOUR_ID_LENGTH]byte) *Reachabilities {
 	log.Debugf("enter: level=%s neighid=%x", level, neighId)
 	defer log.Debugf("exit: level=%s neighid=%x", level, neighId)
-	isis.lock.Lock()
-	defer isis.lock.Unlock()
+	isis.lock.RLock()
+	defer isis.lock.RUnlock()
 	r := NewReachabilities()
 	nidlen := packet.NEIGHBOUR_ID_LENGTH
 	lss := make([]*Ls, 0)
@@ -152,18 +159,6 @@ func (isis *IsisServer) getReachabilities(level IsisLevel, neighId [packet.NEIGH
 	sort.Sort(Lss(lss))
 	for _, ls := range lss {
 		log.Debugf("%s: do %x", level, ls.pdu.LspId())
-		oldtlvs, _ := ls.pdu.IsNeighboursLspTlvs()
-		for _, tlv := range oldtlvs {
-			for _, n := range tlv.Neighbours() {
-				isr := &IsReachability{}
-				neighborId := make([]byte, packet.NEIGHBOUR_ID_LENGTH)
-				copy(neighborId, n.NeighbourId())
-				isr.neighborId = neighborId
-				isr.metric = uint32(n.DefaultMetric)
-				r.isReachabilities = append(r.isReachabilities, isr)
-				log.Debugf("%s: add old %x", level, isr.neighborId)
-			}
-		}
 		widetlvs, _ := ls.pdu.ExtendedIsReachabilityTlvs()
 		for _, tlv := range widetlvs {
 			for _, n := range tlv.Neighbours() {
@@ -172,8 +167,35 @@ func (isis *IsisServer) getReachabilities(level IsisLevel, neighId [packet.NEIGH
 				copy(neighborId, n.NeighbourId())
 				isr.neighborId = neighborId
 				isr.metric = n.DefaultMetric
-				r.isReachabilities = append(r.isReachabilities, isr)
+				//r.isReachabilities = append(r.isReachabilities, isr)
+				r.addIsReachability(isr)
 				log.Debugf("%s: add wide %x", level, isr.neighborId)
+			}
+		}
+		oldtlvs, _ := ls.pdu.IsNeighboursLspTlvs()
+		for _, tlv := range oldtlvs {
+			for _, n := range tlv.Neighbours() {
+				isr := &IsReachability{}
+				neighborId := make([]byte, packet.NEIGHBOUR_ID_LENGTH)
+				copy(neighborId, n.NeighbourId())
+				isr.neighborId = neighborId
+				isr.metric = uint32(n.DefaultMetric)
+				//r.isReachabilities = append(r.isReachabilities, isr)
+				r.addIsReachability(isr)
+				log.Debugf("%s: add old %x", level, isr.neighborId)
+			}
+		}
+		wideiptlvs, _ := ls.pdu.ExtendedIpReachabilityTlvs()
+		for _, tlv := range wideiptlvs {
+			for _, n := range tlv.Ipv4Prefixes() {
+				log.Debugf("%s: XXX %x", level, n.Ipv4Prefix())
+				i4r := &Ipv4Reachability{}
+				i4r.ipv4Prefix = n.Ipv4Prefix()
+				i4r.prefixLength = n.PrefixLength()
+				i4r.metric = n.MetricInformation
+				//r.ipv4Reachabilities = append(r.ipv4Reachabilities, i4r)
+				r.addIpv4Reachability(i4r)
+				log.Debugf("%s: add ipv4 wide %x/%d", level, i4r.ipv4Prefix, i4r.prefixLength)
 			}
 		}
 		oldiptlvs, _ := ls.pdu.IpInternalReachInfoTlvs()
@@ -182,23 +204,11 @@ func (isis *IsisServer) getReachabilities(level IsisLevel, neighId [packet.NEIGH
 				log.Debugf("%s: XXX %x", level, n.IpAddress)
 				i4r := &Ipv4Reachability{}
 				i4r.ipv4Prefix = n.IpAddress
-				i4r.prefixLength = snmask42plen(n.SubnetMask)
+				i4r.prefixLength = util.Snmask42plen(n.SubnetMask)
 				i4r.metric = uint32(n.DefaultMetric)
-				r.ipv4Reachabilities = append(r.ipv4Reachabilities, i4r)
+				//r.ipv4Reachabilities = append(r.ipv4Reachabilities, i4r)
+				r.addIpv4Reachability(i4r)
 				log.Debugf("%s: add ipv4 old %x/%d", level, i4r.ipv4Prefix, i4r.prefixLength)
-			}
-		}
-		wideiptlvs, _ := ls.pdu.ExtendedIpReachabilityTlvs()
-		log.Debugf("%s: XXX %s", level, wideiptlvs)
-		for _, tlv := range wideiptlvs {
-			for _, n := range tlv.Ipv4Prefixes() {
-				log.Debugf("%s: XXX %x", level, n.Ipv4Prefix())
-				i4r := &Ipv4Reachability{}
-				i4r.ipv4Prefix = n.Ipv4Prefix()
-				i4r.prefixLength = n.PrefixLength()
-				i4r.metric = n.MetricInformation
-				r.ipv4Reachabilities = append(r.ipv4Reachabilities, i4r)
-				log.Debugf("%s: add ipv4 wide %x/%d", level, i4r.ipv4Prefix, i4r.prefixLength)
 			}
 		}
 		ip6tlvs, _ := ls.pdu.Ipv6ReachabilityTlvs()
@@ -208,7 +218,8 @@ func (isis *IsisServer) getReachabilities(level IsisLevel, neighId [packet.NEIGH
 				i6r.ipv6Prefix = n.Ipv6Prefix()
 				i6r.prefixLength = n.PrefixLength()
 				i6r.metric = n.Metric
-				r.ipv6Reachabilities = append(r.ipv6Reachabilities, i6r)
+				//r.ipv6Reachabilities = append(r.ipv6Reachabilities, i6r)
+				r.addIpv6Reachability(i6r)
 				log.Debugf("%s: add ipv6 %x:%x:%x:%x/%d", level,
 					i6r.ipv6Prefix[0], i6r.ipv6Prefix[1], i6r.ipv6Prefix[2], i6r.ipv6Prefix[3],
 					i6r.prefixLength)

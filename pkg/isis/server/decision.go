@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sort"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 
@@ -564,6 +565,20 @@ func (isis *IsisServer) routeCalculator(level IsisLevel, doCh chan struct{}, don
 	REDO:
 		doneCh <- struct{}{}
 	}
+}
+
+var decisionChSendCount int
+var decisionChSendCountLock sync.RWMutex
+
+func (isis *IsisServer) decisionChSend(msg *DecisionChMsg) {
+	go func() {
+		decisionChSendCountLock.Lock()
+		decisionChSendCount++
+		decisionChSendCountLock.Unlock()
+		log.Debugf("decisionChSend[%d]: begin", decisionChSendCount)
+		isis.decisionCh <- msg
+		log.Debugf("decisionChSend[%d]: end", decisionChSendCount)
+	}()
 }
 
 func (isis *IsisServer) decisionProcess() {
