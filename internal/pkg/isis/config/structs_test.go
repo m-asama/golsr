@@ -62,5 +62,5 @@ func TestConfig(t *testing.T) {
 		ss = append(ss, fmt.Sprintf("*af.Config.AddressFamily = %s", *af.Config.AddressFamily))
 	}
 	//t.Fatalf("%s", ss)
-	t.Fatalf("xx = %s", *c.Interfaces[0].AddressFamilies[0].Config.AddressFamily)
+	//t.Fatalf("xx = %s", *c.Interfaces[0].AddressFamilies[0].Config.AddressFamily)
 }

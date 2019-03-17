@@ -51,7 +51,7 @@ func TestIihPduP2pNew(t *testing.T) {
 		t.Fatalf("failed NewP2p3wayAdjacencyTlv: %#v", err)
 	}
 	tt.Adj3wayState = ADJ_3WAY_STATE_INITIALIZING
-	xx := []byte{0x01, 0x01, 0x01, 0x02, 0x02, 0x02}
+	xx := [SYSTEM_ID_LENGTH]byte{0x01, 0x01, 0x01, 0x02, 0x02, 0x02}
 	tt.SetNeighbourSystemId(xx)
 	p1.SetP2p3wayAdjacencyTlv(tt)
 

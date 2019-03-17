@@ -83,7 +83,7 @@ func TestIsNeighboursLspTlv(t *testing.T) {
 		t.Fatalf("failed !Equal")
 	}
 
-	n1, err := NewIsNeighboursLspNeighbour([]byte{0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa})
+	n1, err := NewIsNeighboursLspNeighbour([NEIGHBOUR_ID_LENGTH]byte{0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa})
 	if err != nil {
 		t.Fatalf("failed NewIsNeighboursLspNeighbour: %#v", err)
 	}
@@ -103,7 +103,7 @@ func TestIsNeighboursLspTlv(t *testing.T) {
 		t.Fatalf("failed !Equal")
 	}
 
-	err = t1.RemoveNeighbour([]byte{0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa})
+	err = t1.RemoveNeighbour([NEIGHBOUR_ID_LENGTH]byte{0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa})
 	if err != nil {
 		t.Fatalf("failed RemoveNeighbour:  %#v", err)
 	}
@@ -134,14 +134,14 @@ func TestIsNeighboursLspTlv(t *testing.T) {
 		t.Fatalf("failed !Equal")
 	}
 
-	n2, err := NewIsNeighboursLspNeighbour([]byte{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00})
+	n2, err := NewIsNeighboursLspNeighbour([NEIGHBOUR_ID_LENGTH]byte{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00})
 	if err != nil {
 		t.Fatalf("failed RemoveNeighbour:  %#v", err)
 	}
 
 	n2.DefaultMetric = 20
 
-	err = t1.RemoveNeighbour([]byte{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00})
+	err = t1.RemoveNeighbour([NEIGHBOUR_ID_LENGTH]byte{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00})
 	if err != nil {
 		t.Fatalf("failed RemoveNeighbour:  %#v", err)
 	}
@@ -184,7 +184,7 @@ func TestPartitionDesignatedL2IsTlv(t *testing.T) {
 		t.Fatalf("failed !Equal")
 	}
 
-	err = t1.SetDesignatedL2IsId([]byte{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0x00})
+	err = t1.SetDesignatedL2IsId([SYSTEM_ID_LENGTH]byte{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0x00})
 	if err != nil {
 		t.Fatalf("failed SetDesignatedL2IsId: %#v", err)
 	}

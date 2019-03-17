@@ -8,9 +8,9 @@ import (
 
 func TestKernel(t *testing.T) {
 	var b bytes.Buffer
-	info := NewKernelInfo()
+	info := NewKernelStatus()
 	if info == nil {
-		t.Fatalf("NewKernelInfo")
+		t.Fatalf("NewKernelStatus")
 	}
 	for _, iface := range info.Interfaces {
 		fmt.Fprintf(&b, "InterfaceName = %s\n", iface.Name)
@@ -23,5 +23,5 @@ func TestKernel(t *testing.T) {
 				addr6.PrefixLength, addr6.ScopeLink)
 		}
 	}
-	t.Fatalf("\n%s", b.String())
+	//t.Fatalf("\n%s", b.String())
 }
