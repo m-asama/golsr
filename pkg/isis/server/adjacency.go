@@ -66,12 +66,12 @@ type Adjacency struct {
 	areaAddresses     [][]byte
 	ipv4Addresses     []uint32
 	ipv6Addresses     [][4]uint32
-	lanAddress        []byte
-	systemId          []byte
-	priority          uint8  // LAN
-	lanId             []byte // LAN
-	circuitId         uint8  // P2P
-	extendedCircuitId uint32 // P2P
+	lanAddress        [packet.SYSTEM_ID_LENGTH]byte
+	systemId          [packet.SYSTEM_ID_LENGTH]byte
+	priority          uint8                            // LAN
+	lanId             [packet.NEIGHBOUR_ID_LENGTH]byte // LAN
+	circuitId         uint8                            // P2P
+	extendedCircuitId uint32                           // P2P
 	holdingTime       uint16
 	circuit           *Circuit
 }
@@ -83,9 +83,6 @@ func NewAdjacency(circuit *Circuit) (*Adjacency, error) {
 	adjacency.areaAddresses = make([][]byte, 0)
 	adjacency.ipv4Addresses = make([]uint32, 0)
 	adjacency.ipv6Addresses = make([][4]uint32, 0)
-	adjacency.lanAddress = make([]byte, 0)
-	adjacency.systemId = make([]byte, 0)
-	adjacency.lanId = make([]byte, 0)
 	adjacency.circuit = circuit
 	return adjacency, nil
 }

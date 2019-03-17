@@ -11,11 +11,11 @@ type IihPdu struct {
 	base pduBase
 
 	CircuitType    CircuitType
-	sourceId       []byte
+	sourceId       [SYSTEM_ID_LENGTH]byte
 	HoldingTime    uint16
-	Priority       uint8  // LAN
-	lanId          []byte // LAN
-	LocalCircuitId uint8  // P2P
+	Priority       uint8                     // LAN
+	lanId          [NEIGHBOUR_ID_LENGTH]byte // LAN
+	LocalCircuitId uint8                     // P2P
 }
 
 func NewIihPdu(pduType PduType) (*IihPdu, error) {
@@ -27,7 +27,7 @@ func NewIihPdu(pduType PduType) (*IihPdu, error) {
 	var lengthIndicator uint8
 	switch pduType {
 	case PDU_TYPE_LEVEL1_LAN_IIHP, PDU_TYPE_LEVEL2_LAN_IIHP:
-		lengthIndicator = 15 + SYSTEM_ID_LENGTH*2
+		lengthIndicator = 14 + SYSTEM_ID_LENGTH + NEIGHBOUR_ID_LENGTH
 	case PDU_TYPE_P2P_IIHP:
 		lengthIndicator = 14 + SYSTEM_ID_LENGTH
 	}
@@ -38,8 +38,6 @@ func NewIihPdu(pduType PduType) (*IihPdu, error) {
 		},
 	}
 	iih.base.init()
-	iih.sourceId = make([]byte, 0)
-	iih.lanId = make([]byte, 0)
 	return &iih, nil
 }
 
@@ -83,26 +81,23 @@ func (iih *IihPdu) DecodeFromBytes(data []byte) error {
 	iih.CircuitType = CircuitType(data[8])
 	//
 	// SourceId
-	sourceId := make([]byte, iih.base.idLength)
-	copy(sourceId, data[9:9+iih.base.idLength])
-	iih.sourceId = sourceId
+	copy(iih.sourceId[0:SYSTEM_ID_LENGTH], data[9:9+SYSTEM_ID_LENGTH])
 	//
 	// HoldingTime
-	iih.HoldingTime = binary.BigEndian.Uint16(data[9+iih.base.idLength : 11+iih.base.idLength])
+	iih.HoldingTime = binary.BigEndian.Uint16(data[9+SYSTEM_ID_LENGTH : 11+SYSTEM_ID_LENGTH])
 	switch iih.base.pduType {
 	case PDU_TYPE_LEVEL1_LAN_IIHP, PDU_TYPE_LEVEL2_LAN_IIHP:
 		//
 		// Priority
-		iih.Priority = data[13+iih.base.idLength]
+		iih.Priority = data[13+SYSTEM_ID_LENGTH]
 		//
 		// LanId
-		lanId := make([]byte, iih.base.idLength+1)
-		copy(lanId, data[14+iih.base.idLength:15+iih.base.idLength*2])
-		iih.lanId = lanId
+		copy(iih.lanId[0:NEIGHBOUR_ID_LENGTH],
+			data[14+SYSTEM_ID_LENGTH:14+SYSTEM_ID_LENGTH+NEIGHBOUR_ID_LENGTH])
 	case PDU_TYPE_P2P_IIHP:
 		//
 		// LocalCircuitId
-		iih.LocalCircuitId = data[13+iih.base.idLength]
+		iih.LocalCircuitId = data[13+SYSTEM_ID_LENGTH]
 	default:
 		return errors.New("IihPdu.DecodeFromBytes: pduType invalid")
 	}
@@ -119,22 +114,23 @@ func (iih *IihPdu) Serialize() ([]byte, error) {
 	data[8] = uint8(iih.CircuitType)
 	//
 	// SourceId
-	copy(data[9:9+iih.base.idLength], iih.sourceId)
+	copy(data[9:9+SYSTEM_ID_LENGTH], iih.sourceId[0:SYSTEM_ID_LENGTH])
 	//
 	// HoldingTime
-	binary.BigEndian.PutUint16(data[9+iih.base.idLength:11+iih.base.idLength], iih.HoldingTime)
+	binary.BigEndian.PutUint16(data[9+SYSTEM_ID_LENGTH:11+SYSTEM_ID_LENGTH], iih.HoldingTime)
 	switch iih.base.pduType {
 	case PDU_TYPE_LEVEL1_LAN_IIHP, PDU_TYPE_LEVEL2_LAN_IIHP:
 		//
 		// Priority
-		data[13+iih.base.idLength] = iih.Priority
+		data[13+SYSTEM_ID_LENGTH] = iih.Priority
 		//
 		// LanId
-		copy(data[14+iih.base.idLength:15+iih.base.idLength*2], iih.lanId)
+		copy(data[14+SYSTEM_ID_LENGTH:14+SYSTEM_ID_LENGTH+NEIGHBOUR_ID_LENGTH],
+			iih.lanId[0:NEIGHBOUR_ID_LENGTH])
 	case PDU_TYPE_P2P_IIHP:
 		//
 		// LocalCircuitId
-		data[13+iih.base.idLength] = iih.LocalCircuitId
+		data[13+SYSTEM_ID_LENGTH] = iih.LocalCircuitId
 	default:
 		return nil, errors.New("IihPdu.Serialize: pduType invalid")
 	}
@@ -145,34 +141,20 @@ func (iih *IihPdu) BaseValid() bool {
 	return iih.base.valid()
 }
 
-func (iih *IihPdu) SourceId() []byte {
-	sourceId := make([]byte, len(iih.sourceId))
-	copy(sourceId, iih.sourceId)
-	return sourceId
+func (iih *IihPdu) SourceId() [SYSTEM_ID_LENGTH]byte {
+	return iih.sourceId
 }
 
-func (iih *IihPdu) SetSourceId(sourceId []byte) error {
-	if len(sourceId) != SYSTEM_ID_LENGTH {
-		return errors.New("IihPdu.SetSourceId: sourceId length invalid")
-	}
-	sidtmp := make([]byte, len(sourceId))
-	copy(sidtmp, sourceId)
+func (iih *IihPdu) SetSourceId(sourceId [SYSTEM_ID_LENGTH]byte) error {
 	iih.sourceId = sourceId
 	return nil
 }
 
-func (iih *IihPdu) LanId() []byte {
-	lanId := make([]byte, len(iih.lanId))
-	copy(lanId, iih.lanId)
-	return lanId
+func (iih *IihPdu) LanId() [NEIGHBOUR_ID_LENGTH]byte {
+	return iih.lanId
 }
 
-func (iih *IihPdu) SetLanId(lanId []byte) error {
-	if len(lanId) != NEIGHBOUR_ID_LENGTH {
-		return errors.New("IihPdu.SetLanId: lanId length invalid")
-	}
-	lidtmp := make([]byte, len(lanId))
-	copy(lidtmp, lanId)
+func (iih *IihPdu) SetLanId(lanId [NEIGHBOUR_ID_LENGTH]byte) error {
 	iih.lanId = lanId
 	return nil
 }

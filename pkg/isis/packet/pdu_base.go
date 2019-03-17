@@ -94,10 +94,10 @@ func (base *pduBase) DecodeFromBytes(data []byte) error {
 	}
 	switch base.pduType {
 	case PDU_TYPE_LEVEL1_LAN_IIHP, PDU_TYPE_LEVEL2_LAN_IIHP, PDU_TYPE_P2P_IIHP:
-		if len(data) < int(13+base.idLength) {
+		if len(data) < int(13+SYSTEM_ID_LENGTH) {
 			return errors.New("pduBase.DecodeFromBytes: data length too short")
 		}
-		base.pduLength = binary.BigEndian.Uint16(data[11+base.idLength : 13+base.idLength])
+		base.pduLength = binary.BigEndian.Uint16(data[11+SYSTEM_ID_LENGTH : 13+SYSTEM_ID_LENGTH])
 	default:
 		if len(data) < 10 {
 			return errors.New("pduBase.DecodeFromBytes: data length too short")
@@ -171,7 +171,7 @@ func (base *pduBase) Serialize() ([]byte, error) {
 	}
 	switch base.pduType {
 	case PDU_TYPE_LEVEL1_LAN_IIHP, PDU_TYPE_LEVEL2_LAN_IIHP, PDU_TYPE_P2P_IIHP:
-		binary.BigEndian.PutUint16(data[11+base.idLength:13+base.idLength], base.pduLength)
+		binary.BigEndian.PutUint16(data[11+SYSTEM_ID_LENGTH:13+SYSTEM_ID_LENGTH], base.pduLength)
 	default:
 		binary.BigEndian.PutUint16(data[8:10], base.pduLength)
 	}

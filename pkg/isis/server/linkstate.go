@@ -17,11 +17,10 @@ func (circuit *Circuit) sendLs(lsp *packet.LsPdu) {
 		return
 	}
 
-	//circuit.sendPdu(lsp)
 	circuit.lsSenderCh <- lsp
 }
 
-func (circuit *Circuit) receiveLs(pdu *packet.LsPdu, lanAddress []byte) {
+func (circuit *Circuit) receiveLs(pdu *packet.LsPdu, lanAddress [packet.SYSTEM_ID_LENGTH]byte) {
 	log.Debugf("enter: %s", circuit.name)
 	defer log.Debugf("exit: %s", circuit.name)
 
@@ -59,7 +58,7 @@ func (circuit *Circuit) receiveLs(pdu *packet.LsPdu, lanAddress []byte) {
 
 	// iso10589 p.34 7.3.15.1 a) 6)
 	if circuit.configBcast() &&
-		!bytes.Equal(lanAddress, adjacency.lanAddress) {
+		!bytes.Equal(lanAddress[:], adjacency.lanAddress[:]) {
 		return
 	}
 	if pdu.PduType() == packet.PDU_TYPE_LEVEL1_LSP &&
@@ -83,10 +82,11 @@ func (circuit *Circuit) receiveLs(pdu *packet.LsPdu, lanAddress []byte) {
 		return
 	}
 	currentLs := circuit.isis.lookupLsp(level, pdu.LspId())
+	lspId := pdu.LspId()
 	if pdu.RemainingLifetime == 0 {
 		// iso10589 p.35 7.3.15.1 b)
 		circuit.networkWidePurge(pdu, currentLs)
-	} else if bytes.Equal(pdu.LspId()[0:packet.SYSTEM_ID_LENGTH], circuit.isis.systemId) {
+	} else if bytes.Equal(lspId[0:packet.SYSTEM_ID_LENGTH], circuit.isis.systemId[0:packet.SYSTEM_ID_LENGTH]) {
 		if currentLs == nil || !currentLs.origin {
 			// iso10589 p.35 7.3.15.1 c)
 			circuit.networkWidePurge(pdu, currentLs)
@@ -120,7 +120,6 @@ func (circuit *Circuit) receiveLs(pdu *packet.LsPdu, lanAddress []byte) {
 		}
 	}
 
-	//circuit.isis.checkFlags()
 	go circuit.isis.scheduleHandleFlags()
 }
 

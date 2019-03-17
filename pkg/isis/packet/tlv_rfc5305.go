@@ -44,7 +44,7 @@ import (
 */
 
 type extendedIsReachabilityNeighbour struct {
-	neighbourId                          []byte
+	neighbourId                          [NEIGHBOUR_ID_LENGTH]byte
 	DefaultMetric                        uint32
 	LengthOfSubtlvs                      uint8
 	adminGroupSubTlv                     *uint32
@@ -58,24 +58,17 @@ type extendedIsReachabilityNeighbour struct {
 	extendedIsReachabilityTlv            *extendedIsReachabilityTlv
 }
 
-func NewExtendedIsReachabilityNeighbour(neighbourId []byte) (*extendedIsReachabilityNeighbour, error) {
-	if len(neighbourId) != NEIGHBOUR_ID_LENGTH {
-		return nil, errors.New("NewExtendedIsReachabilityNeighbour: neighbour ID length invalid")
-	}
-	nidtmp := make([]byte, NEIGHBOUR_ID_LENGTH)
-	copy(nidtmp, neighbourId)
+func NewExtendedIsReachabilityNeighbour(neighbourId [NEIGHBOUR_ID_LENGTH]byte) (*extendedIsReachabilityNeighbour, error) {
 	neighbour := extendedIsReachabilityNeighbour{}
-	neighbour.neighbourId = nidtmp
+	neighbour.neighbourId = neighbourId
 	neighbour.ipv4InterfaceAddressSubtlvs = make([]uint32, 0)
 	neighbour.ipv4NeighbourAddressSubtlvs = make([]uint32, 0)
 	neighbour.unknownSubtlvs = make([][]byte, 0)
 	return &neighbour, nil
 }
 
-func (neighbour *extendedIsReachabilityNeighbour) NeighbourId() []byte {
-	neighbourId := make([]byte, len(neighbour.neighbourId))
-	copy(neighbourId, neighbour.neighbourId)
-	return neighbourId
+func (neighbour *extendedIsReachabilityNeighbour) NeighbourId() [NEIGHBOUR_ID_LENGTH]byte {
+	return neighbour.neighbourId
 }
 
 func (neighbour *extendedIsReachabilityNeighbour) SetLengthOfSubtlvs() {
@@ -233,11 +226,10 @@ func NewExtendedIsReachabilityTlv() (*extendedIsReachabilityTlv, error) {
 	return &tlv, nil
 }
 
-func (tlv *extendedIsReachabilityTlv) NeighbourIds() [][]byte {
-	neighbourIds := make([][]byte, 0)
+func (tlv *extendedIsReachabilityTlv) NeighbourIds() [][NEIGHBOUR_ID_LENGTH]byte {
+	neighbourIds := make([][NEIGHBOUR_ID_LENGTH]byte, 0)
 	for _, n := range tlv.neighbours {
-		neighbourId := make([]byte, len(n.neighbourId))
-		copy(neighbourId, n.neighbourId)
+		neighbourId := n.neighbourId
 		neighbourIds = append(neighbourIds, neighbourId)
 	}
 	return neighbourIds
@@ -246,9 +238,8 @@ func (tlv *extendedIsReachabilityTlv) NeighbourIds() [][]byte {
 func (tlv *extendedIsReachabilityTlv) Neighbours() []*extendedIsReachabilityNeighbour {
 	neighbours := make([]*extendedIsReachabilityNeighbour, 0)
 	for _, ntmp := range tlv.neighbours {
-		n := &extendedIsReachabilityNeighbour{}
-		*n = ntmp
-		neighbours = append(neighbours, n)
+		neighbour := ntmp
+		neighbours = append(neighbours, &neighbour)
 	}
 	return neighbours
 }
@@ -262,16 +253,13 @@ func (tlv *extendedIsReachabilityTlv) SetLength() {
 }
 
 func (tlv *extendedIsReachabilityTlv) AddNeighbour(neighbour *extendedIsReachabilityNeighbour) error {
-	if len(neighbour.neighbourId) != NEIGHBOUR_ID_LENGTH {
-		return errors.New("ExtendedIsReachabilityTlv.AddNeighbour: neighbour ID length invalid")
-	}
 	if neighbour.extendedIsReachabilityTlv != nil {
 		return errors.New("extendedIsReachabilityTlv.AddNeighbour: neighbour already used")
 	}
 	length := 0
 	neighbours := make([]extendedIsReachabilityNeighbour, 0)
 	for _, ntmp := range tlv.neighbours {
-		if !bytes.Equal(neighbour.neighbourId, ntmp.neighbourId) {
+		if !bytes.Equal(neighbour.neighbourId[:], ntmp.neighbourId[:]) {
 			length += 11 + int(ntmp.LengthOfSubtlvs)
 			neighbours = append(neighbours, ntmp)
 		}
@@ -289,7 +277,7 @@ func (tlv *extendedIsReachabilityTlv) RemoveNeighbour(neighbourId []byte) error 
 	length := 0
 	neighbours := make([]extendedIsReachabilityNeighbour, 0)
 	for _, ntmp := range tlv.neighbours {
-		if bytes.Equal(neighbourId, ntmp.neighbourId) {
+		if bytes.Equal(neighbourId[:], ntmp.neighbourId[:]) {
 			ntmp.extendedIsReachabilityTlv = nil
 		} else {
 			length += 11 + int(ntmp.LengthOfSubtlvs)
@@ -362,7 +350,9 @@ func (tlv *extendedIsReachabilityTlv) DecodeFromBytes(data []byte) error {
 		if i+11 > len(tlv.base.value) {
 			return errors.New("extendedIsReachabilityTlv.DecodeFromBytes: size invalid")
 		}
-		neigh, err := NewExtendedIsReachabilityNeighbour(tlv.base.value[i+0 : i+7])
+		var neighbourId [NEIGHBOUR_ID_LENGTH]byte
+		copy(neighbourId[0:NEIGHBOUR_ID_LENGTH], tlv.base.value[i:i+NEIGHBOUR_ID_LENGTH])
+		neigh, err := NewExtendedIsReachabilityNeighbour(neighbourId)
 		if err != nil {
 			return err
 		}
@@ -474,7 +464,7 @@ func (tlv *extendedIsReachabilityTlv) Serialize() ([]byte, error) {
 		if i+11+int(neigh.LengthOfSubtlvs) > len(value) {
 			return nil, errors.New("extendedIsReachabilityTlv.Serialize: size over")
 		}
-		copy(value[i:i+7], neigh.neighbourId)
+		copy(value[i:i+NEIGHBOUR_ID_LENGTH], neigh.neighbourId[0:NEIGHBOUR_ID_LENGTH])
 		i += 7
 		dmtmp := make([]byte, 4)
 		binary.BigEndian.PutUint32(dmtmp[0:4], neigh.DefaultMetric)

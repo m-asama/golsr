@@ -9,9 +9,9 @@ import (
 type SnPdu struct {
 	base pduBase
 
-	sourceId   []byte
-	startLspId []byte // CSN
-	endLspId   []byte // CSN
+	sourceId   [NEIGHBOUR_ID_LENGTH]byte
+	startLspId [LSP_ID_LENGTH]byte // CSN
+	endLspId   [LSP_ID_LENGTH]byte // CSN
 }
 
 func NewSnPdu(pduType PduType) (*SnPdu, error) {
@@ -35,9 +35,6 @@ func NewSnPdu(pduType PduType) (*SnPdu, error) {
 		},
 	}
 	sn.base.init()
-	sn.sourceId = make([]byte, 0)
-	sn.startLspId = make([]byte, 0)
-	sn.endLspId = make([]byte, 0)
 	return &sn, nil
 }
 
@@ -77,21 +74,17 @@ func (sn *SnPdu) DecodeFromBytes(data []byte) error {
 	}
 	//
 	// SourceId
-	sourceId := make([]byte, sn.base.idLength+1)
-	copy(sourceId, data[10:11+sn.base.idLength])
-	sn.sourceId = sourceId
+	copy(sn.sourceId[0:NEIGHBOUR_ID_LENGTH], data[10:10+NEIGHBOUR_ID_LENGTH])
 	if sn.base.pduType == PDU_TYPE_LEVEL1_CSNP ||
 		sn.base.pduType == PDU_TYPE_LEVEL2_CSNP {
 		//
 		// StartLspId
-		startLspId := make([]byte, sn.base.idLength+2)
-		copy(startLspId, data[11+sn.base.idLength:13+sn.base.idLength*2])
-		sn.startLspId = startLspId
+		copy(sn.startLspId[0:LSP_ID_LENGTH],
+			data[10+NEIGHBOUR_ID_LENGTH:10+NEIGHBOUR_ID_LENGTH+LSP_ID_LENGTH])
 		//
 		// EndLspId
-		endLspId := make([]byte, sn.base.idLength+2)
-		copy(endLspId, data[13+sn.base.idLength*2:15+sn.base.idLength*3])
-		sn.endLspId = endLspId
+		copy(sn.endLspId[0:LSP_ID_LENGTH],
+			data[10+NEIGHBOUR_ID_LENGTH+LSP_ID_LENGTH:10+NEIGHBOUR_ID_LENGTH+LSP_ID_LENGTH*2])
 	}
 	return nil
 }
@@ -103,15 +96,17 @@ func (sn *SnPdu) Serialize() ([]byte, error) {
 	}
 	//
 	// SourceId
-	copy(data[10:11+sn.base.idLength], sn.sourceId)
+	copy(data[10:10+NEIGHBOUR_ID_LENGTH], sn.sourceId[0:NEIGHBOUR_ID_LENGTH])
 	if sn.base.pduType == PDU_TYPE_LEVEL1_CSNP ||
 		sn.base.pduType == PDU_TYPE_LEVEL2_CSNP {
 		//
 		// StartLspId
-		copy(data[11+sn.base.idLength:13+sn.base.idLength*2], sn.startLspId)
+		copy(data[10+NEIGHBOUR_ID_LENGTH:10+NEIGHBOUR_ID_LENGTH+LSP_ID_LENGTH],
+			sn.startLspId[0:LSP_ID_LENGTH])
 		//
 		// EndLspId
-		copy(data[13+sn.base.idLength*2:15+sn.base.idLength*3], sn.endLspId)
+		copy(data[10+NEIGHBOUR_ID_LENGTH+LSP_ID_LENGTH:10+NEIGHBOUR_ID_LENGTH+LSP_ID_LENGTH*2],
+			sn.endLspId[0:LSP_ID_LENGTH])
 	}
 	return data, nil
 }
@@ -120,38 +115,21 @@ func (sn *SnPdu) BaseValid() bool {
 	return sn.base.valid()
 }
 
-func (sn *SnPdu) SourceId() []byte {
-	sourceId := make([]byte, len(sn.sourceId))
-	copy(sourceId, sn.sourceId)
-	return sourceId
+func (sn *SnPdu) SourceId() [NEIGHBOUR_ID_LENGTH]byte {
+	return sn.sourceId
 }
 
-func (sn *SnPdu) SetSourceId(sourceId []byte) error {
-	if len(sourceId) != SYSTEM_ID_LENGTH {
-		return errors.New("IihPdu.SetSourceId: sourceId length invalid")
-	}
-	sidtmp := make([]byte, len(sourceId))
-	copy(sidtmp, sourceId)
+func (sn *SnPdu) SetSourceId(sourceId [NEIGHBOUR_ID_LENGTH]byte) error {
 	sn.sourceId = sourceId
 	return nil
 }
 
-func (sn *SnPdu) SetStartLspId(startLspId []byte) error {
-	if len(startLspId) != LSP_ID_LENGTH {
-		return errors.New("IihPdu.SetStartLspId: LSP ID length invalid")
-	}
-	lidtmp := make([]byte, len(startLspId))
-	copy(lidtmp, startLspId)
+func (sn *SnPdu) SetStartLspId(startLspId [LSP_ID_LENGTH]byte) error {
 	sn.startLspId = startLspId
 	return nil
 }
 
-func (sn *SnPdu) SetEndLspId(endLspId []byte) error {
-	if len(endLspId) != LSP_ID_LENGTH {
-		return errors.New("IihPdu.SetEndLspId: LSP ID length invalid")
-	}
-	lidtmp := make([]byte, len(endLspId))
-	copy(lidtmp, endLspId)
+func (sn *SnPdu) SetEndLspId(endLspId [LSP_ID_LENGTH]byte) error {
 	sn.endLspId = endLspId
 	return nil
 }

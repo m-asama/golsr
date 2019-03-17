@@ -42,9 +42,8 @@ type Circuit struct {
 	localCircuitId         uint8
 	extendedLocalCircuitId uint32
 	isReachabilities       [ISIS_LEVEL_NUM][]*IsReachability
-	//previousIsReachabilities [ISIS_LEVEL_NUM][]*IsReachability
-	uptime   *time.Time
-	downtime *time.Time
+	uptime                 *time.Time
+	downtime               *time.Time
 
 	adjacencyDb []*Adjacency
 
@@ -139,7 +138,6 @@ func NewCircuit(isis *IsisServer, ifKernel *kernel.Interface, ifConfig *config.I
 	}
 	for _, level := range ISIS_LEVEL_ALL {
 		circuit.isReachabilities[level] = make([]*IsReachability, 0)
-		//circuit.previousIsReachabilities[level] = make([]*IsReachability, 0)
 	}
 	return circuit
 }
@@ -247,37 +245,31 @@ func (circuit *Circuit) lspRetransmitInterval() uint16 {
 
 func (circuit *Circuit) designated(level IsisLevel) bool {
 	if !circuit.ready() {
-		//log.Debugf("%s: !circuit.ready()", level)
 		return false
 	}
 	if !circuit.configBcast() {
-		//log.Debugf("%s: !circuit.configBcast()", level)
 		return false
 	}
 	for _, adjacency := range circuit.adjacencyDb {
-		//log.Debugf("%s: %x %s", level, adjacency.lanId, adjacency.adjState)
 		if adjacency.adjState != packet.ADJ_3WAY_STATE_UP ||
 			level == ISIS_LEVEL_1 && adjacency.adjType != ADJ_TYPE_LEVEL1_LAN ||
 			level == ISIS_LEVEL_2 && adjacency.adjType != ADJ_TYPE_LEVEL2_LAN {
-			//log.Debugf("%s: continue", level)
 			continue
 		}
 		if circuit.priority(level) < adjacency.priority ||
 			circuit.priority(level) == adjacency.priority &&
-				bytes.Compare(circuit.kernelHardwareAddr(), adjacency.lanAddress) < 0 {
-			//log.Debugf("%s: false", level)
+				bytes.Compare(circuit.kernelHardwareAddr(), adjacency.lanAddress[:]) < 0 {
 			return false
 		}
 	}
-	//log.Debugf("%s: true", level)
 	return true
 }
 
-func (circuit *Circuit) lanId(level IsisLevel) []byte {
+func (circuit *Circuit) lanId(level IsisLevel) [packet.NEIGHBOUR_ID_LENGTH]byte {
 	log.Debugf("enter: %s", circuit.name)
 	defer log.Debugf("exit: %s", circuit.name)
-	lanId := make([]byte, packet.NEIGHBOUR_ID_LENGTH)
-	copy(lanId[0:packet.SYSTEM_ID_LENGTH], circuit.isis.systemId)
+	var lanId [packet.NEIGHBOUR_ID_LENGTH]byte
+	copy(lanId[0:packet.SYSTEM_ID_LENGTH], circuit.isis.systemId[0:packet.SYSTEM_ID_LENGTH])
 	lanId[packet.NEIGHBOUR_ID_LENGTH-1] = circuit.localCircuitId
 	if circuit.designated(level) {
 		return lanId
@@ -295,13 +287,12 @@ func (circuit *Circuit) lanId(level IsisLevel) []byte {
 		}
 		if designated.priority < adjacency.priority ||
 			designated.priority == adjacency.priority &&
-				bytes.Compare(designated.lanAddress, adjacency.lanAddress) < 0 {
+				bytes.Compare(designated.lanAddress[:], adjacency.lanAddress[:]) < 0 {
 			designated = adjacency
 		}
 	}
 	if designated != nil {
-		//copy(lanId, designated.lanId)
-		copy(lanId[0:packet.SYSTEM_ID_LENGTH], designated.systemId)
+		copy(lanId[0:packet.SYSTEM_ID_LENGTH], designated.systemId[0:packet.SYSTEM_ID_LENGTH])
 		lanId[packet.NEIGHBOUR_ID_LENGTH-1] = designated.circuitId
 	}
 	return lanId
@@ -389,11 +380,11 @@ func (circuit *Circuit) kernelUp() bool {
 	return circuit.ifKernel.Up
 }
 
-func (circuit *Circuit) findAdjacency(lanAddress []byte, adjType AdjType) *Adjacency {
+func (circuit *Circuit) findAdjacency(lanAddress [packet.SYSTEM_ID_LENGTH]byte, adjType AdjType) *Adjacency {
 	log.Debugf("enter: %s", circuit.name)
 	defer log.Debugf("exit: %s", circuit.name)
 	for _, adjacency := range circuit.adjacencyDb {
-		if bytes.Equal(adjacency.lanAddress, lanAddress) &&
+		if bytes.Equal(adjacency.lanAddress[:], lanAddress[:]) &&
 			adjacency.adjType == adjType {
 			return adjacency
 		}
@@ -406,7 +397,7 @@ func (circuit *Circuit) addAdjacency(adjacency *Adjacency) error {
 	defer log.Debugf("exit: %s", circuit.name)
 	adjacencies := make([]*Adjacency, 0)
 	for _, adjtmp := range circuit.adjacencyDb {
-		if !bytes.Equal(adjtmp.lanAddress, adjacency.lanAddress) ||
+		if !bytes.Equal(adjtmp.lanAddress[:], adjacency.lanAddress[:]) ||
 			adjtmp.adjType != adjacency.adjType {
 			adjacencies = append(adjacencies, adjtmp)
 		}
@@ -416,12 +407,12 @@ func (circuit *Circuit) addAdjacency(adjacency *Adjacency) error {
 	return nil
 }
 
-func (circuit *Circuit) removeAdjacency(lanAddress []byte, adjType AdjType) error {
+func (circuit *Circuit) removeAdjacency(lanAddress [packet.SYSTEM_ID_LENGTH]byte, adjType AdjType) error {
 	log.Debugf("enter: %s", circuit.name)
 	defer log.Debugf("exit: %s", circuit.name)
 	adjacencies := make([]*Adjacency, 0)
 	for _, adjtmp := range circuit.adjacencyDb {
-		if !bytes.Equal(adjtmp.lanAddress, lanAddress) ||
+		if !bytes.Equal(adjtmp.lanAddress[:], lanAddress[:]) ||
 			adjtmp.adjType != adjType {
 			adjacencies = append(adjacencies, adjtmp)
 		}
@@ -561,7 +552,6 @@ func (circuit *Circuit) l1lCsnSender() {
 			switch msg {
 			case CIRCUIT_CH_MSG_START:
 				log.Debugf("%s: CIRCUIT_CH_MSG_START", circuit.name)
-				//circuit.sendCsn(packet.PDU_TYPE_LEVEL1_CSNP)
 				timer.Reset(time.Second * circuit.sendCsnInterval())
 			case CIRCUIT_CH_MSG_STOP:
 				log.Debugf("%s: CIRCUIT_CH_MSG_STOP", circuit.name)
@@ -590,7 +580,6 @@ func (circuit *Circuit) l2lCsnSender() {
 			switch msg {
 			case CIRCUIT_CH_MSG_START:
 				log.Debugf("%s: CIRCUIT_CH_MSG_START", circuit.name)
-				//circuit.sendCsn(packet.PDU_TYPE_LEVEL2_CSNP)
 				timer.Reset(time.Second * circuit.sendCsnInterval())
 			case CIRCUIT_CH_MSG_STOP:
 				log.Debugf("%s: CIRCUIT_CH_MSG_STOP", circuit.name)
@@ -609,7 +598,7 @@ EXIT:
 }
 
 type receiverMessage struct {
-	from []byte
+	from [packet.SYSTEM_ID_LENGTH]byte
 	pdu  packet.IsisPdu
 }
 
@@ -631,7 +620,9 @@ func (circuit *Circuit) receiver() {
 							break
 						}
 						fromll := from.(*syscall.SockaddrLinklayer)
-						fromb := fromll.Addr[0:6]
+						var fromb [packet.SYSTEM_ID_LENGTH]byte
+						copy(fromb[0:packet.SYSTEM_ID_LENGTH],
+							fromll.Addr[0:packet.SYSTEM_ID_LENGTH])
 						llc := 0
 						if bytes.Equal(buf[0:3], packet.Llc) {
 							llc = 3
@@ -723,7 +714,6 @@ func (circuit *Circuit) sendPdu(pdu packet.IsisPdu) {
 	dad[6] = 0x0
 	dad[7] = 0x0
 	dstaddr := syscall.SockaddrLinklayer{
-		//Protocol: syscall.ETH_P_IP,
 		Protocol: htons(uint16(len(buf))),
 		Ifindex:  circuit.ifKernel.IfIndex,
 		Halen:    uint8(6),
@@ -747,7 +737,6 @@ func (circuit *Circuit) changed() bool {
 			changed = true
 		}
 	}
-	//circuit.handleStateTransition()
 	return changed
 }
 
@@ -892,8 +881,8 @@ func (circuit *Circuit) newIsReachabilities(level IsisLevel) []*IsReachability {
 		if adjacency.adjState != packet.ADJ_3WAY_STATE_UP {
 			continue
 		}
-		neighborId := make([]byte, len(adjacency.systemId))
-		copy(neighborId, adjacency.systemId)
+		var neighborId [packet.NEIGHBOUR_ID_LENGTH]byte
+		copy(neighborId[0:packet.SYSTEM_ID_LENGTH], adjacency.systemId[0:packet.SYSTEM_ID_LENGTH])
 		isr := &IsReachability{
 			neighborId: neighborId,
 			metric:     0,
@@ -903,12 +892,11 @@ func (circuit *Circuit) newIsReachabilities(level IsisLevel) []*IsReachability {
 	}
 	for _, ctmp := range circuit.isReachabilities[level] {
 		for _, ntmp := range new {
-			if bytes.Equal(ntmp.neighborId, ctmp.neighborId) {
+			if bytes.Equal(ntmp.neighborId[:], ctmp.neighborId[:]) {
 				ntmp.lspNumber = ctmp.lspNumber
 			}
 		}
 	}
-	//circuit.sortIsReachabilities(new)
 	sort.Sort(IsReachabilities(new))
 	return new
 }
@@ -921,7 +909,7 @@ func (circuit *Circuit) isReachabilitiesChanged(level IsisLevel, new []*IsReacha
 		return true
 	}
 	for i := 0; i < len(current); i++ {
-		if !bytes.Equal(current[i].neighborId, new[i].neighborId) ||
+		if !bytes.Equal(current[i].neighborId[:], new[i].neighborId[:]) ||
 			current[i].metric != new[i].metric {
 			return true
 		}

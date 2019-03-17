@@ -9,9 +9,9 @@ import (
 	"github.com/m-asama/golsr/pkg/isis/packet"
 )
 
-func ParseSystemId(systemIdStr string) []byte {
+func ParseSystemId(systemIdStr string) [packet.SYSTEM_ID_LENGTH]byte {
 	var tmp int64
-	systemId := make([]byte, packet.SYSTEM_ID_LENGTH)
+	var systemId [packet.SYSTEM_ID_LENGTH]byte
 	tmp, _ = strconv.ParseInt(systemIdStr[0:2], 16, 16)
 	systemId[0] = byte(tmp)
 	tmp, _ = strconv.ParseInt(systemIdStr[2:4], 16, 16)

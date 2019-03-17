@@ -191,24 +191,17 @@ type isNeighboursLspNeighbour struct {
 	ErrorMetric            uint8
 	ErrorMetricSupported   bool
 	ErrorMetricType        MetricType
-	neighbourId            []byte
+	neighbourId            [NEIGHBOUR_ID_LENGTH]byte
 }
 
-func NewIsNeighboursLspNeighbour(neighbourId []byte) (*isNeighboursLspNeighbour, error) {
-	if len(neighbourId) != NEIGHBOUR_ID_LENGTH {
-		return nil, errors.New("NewIsNeighboursLspNeighbour: neighbour ID length invalid")
-	}
-	nidtmp := make([]byte, NEIGHBOUR_ID_LENGTH)
-	copy(nidtmp, neighbourId)
+func NewIsNeighboursLspNeighbour(neighbourId [NEIGHBOUR_ID_LENGTH]byte) (*isNeighboursLspNeighbour, error) {
 	neighbour := isNeighboursLspNeighbour{}
-	neighbour.neighbourId = nidtmp
+	neighbour.neighbourId = neighbourId
 	return &neighbour, nil
 }
 
-func (neighbour *isNeighboursLspNeighbour) NeighbourId() []byte {
-	neighbourId := make([]byte, len(neighbour.neighbourId))
-	copy(neighbourId, neighbour.neighbourId)
-	return neighbourId
+func (neighbour *isNeighboursLspNeighbour) NeighbourId() [NEIGHBOUR_ID_LENGTH]byte {
+	return neighbour.neighbourId
 }
 
 type isNeighboursLspTlv struct {
@@ -228,11 +221,10 @@ func NewIsNeighboursLspTlv() (*isNeighboursLspTlv, error) {
 	return &tlv, nil
 }
 
-func (tlv *isNeighboursLspTlv) NeighbourIds() [][]byte {
-	neighbourIds := make([][]byte, 0)
+func (tlv *isNeighboursLspTlv) NeighbourIds() [][NEIGHBOUR_ID_LENGTH]byte {
+	neighbourIds := make([][NEIGHBOUR_ID_LENGTH]byte, 0)
 	for _, n := range tlv.neighbours {
-		neighbourId := make([]byte, len(n.neighbourId))
-		copy(neighbourId, n.neighbourId)
+		neighbourId := n.neighbourId
 		neighbourIds = append(neighbourIds, neighbourId)
 	}
 	return neighbourIds
@@ -241,19 +233,17 @@ func (tlv *isNeighboursLspTlv) NeighbourIds() [][]byte {
 func (tlv *isNeighboursLspTlv) Neighbours() []*isNeighboursLspNeighbour {
 	neighbours := make([]*isNeighboursLspNeighbour, 0)
 	for _, n := range tlv.neighbours {
-		neighbours = append(neighbours, &n)
+		neighbour := n
+		neighbours = append(neighbours, &neighbour)
 	}
 	return neighbours
 }
 
 func (tlv *isNeighboursLspTlv) AddNeighbour(neighbour *isNeighboursLspNeighbour) error {
-	if len(neighbour.neighbourId) != NEIGHBOUR_ID_LENGTH {
-		return errors.New("IsNeighboursLspTlv.AddNeighbour: neighbour ID length invalid")
-	}
 	length := 0
 	neighbours := make([]isNeighboursLspNeighbour, 0)
 	for _, ntmp := range tlv.neighbours {
-		if bytes.Equal(neighbour.neighbourId, ntmp.neighbourId) {
+		if bytes.Equal(neighbour.neighbourId[:], ntmp.neighbourId[:]) {
 			return nil
 		}
 		neighbours = append(neighbours, ntmp)
@@ -268,11 +258,11 @@ func (tlv *isNeighboursLspTlv) AddNeighbour(neighbour *isNeighboursLspNeighbour)
 	return nil
 }
 
-func (tlv *isNeighboursLspTlv) RemoveNeighbour(neighbourId []byte) error {
+func (tlv *isNeighboursLspTlv) RemoveNeighbour(neighbourId [NEIGHBOUR_ID_LENGTH]byte) error {
 	length := 0
 	neighbours := make([]isNeighboursLspNeighbour, 0)
 	for _, ntmp := range tlv.neighbours {
-		if !bytes.Equal(neighbourId, ntmp.neighbourId) {
+		if !bytes.Equal(neighbourId[:], ntmp.neighbourId[:]) {
 			neighbours = append(neighbours, ntmp)
 			length += 4 + NEIGHBOUR_ID_LENGTH
 		}
@@ -332,8 +322,7 @@ func (tlv *isNeighboursLspTlv) DecodeFromBytes(data []byte) error {
 		ntmp.ErrorMetric = (tlv.base.value[i+3] & 0x3f)
 		ntmp.ErrorMetricSupported = ((tlv.base.value[i+3] & 0x80) == 0x00)
 		ntmp.ErrorMetricType = MetricType(tlv.base.value[i+3] & 0x40)
-		ntmp.neighbourId = make([]byte, 1+SYSTEM_ID_LENGTH)
-		copy(ntmp.neighbourId, tlv.base.value[i+4:i+4+NEIGHBOUR_ID_LENGTH])
+		copy(ntmp.neighbourId[0:NEIGHBOUR_ID_LENGTH], tlv.base.value[i+4:i+4+NEIGHBOUR_ID_LENGTH])
 		neighbours = append(neighbours, *ntmp)
 		consumed += 4 + NEIGHBOUR_ID_LENGTH
 	}
@@ -381,7 +370,7 @@ func (tlv *isNeighboursLspTlv) Serialize() ([]byte, error) {
 		if ntmp.ErrorMetricType == METRIC_TYPE_EXTERNAL {
 			value[i+3] |= 0x40
 		}
-		copy(value[i+4:i+4+NEIGHBOUR_ID_LENGTH], ntmp.neighbourId)
+		copy(value[i+4:i+4+NEIGHBOUR_ID_LENGTH], ntmp.neighbourId[0:NEIGHBOUR_ID_LENGTH])
 		i += 4 + NEIGHBOUR_ID_LENGTH
 	}
 	tlv.base.length = uint8(length)
@@ -430,7 +419,7 @@ func (tlv *isNeighboursLspTlv) Serialize() ([]byte, error) {
 
 type partitionDesignatedL2IsTlv struct {
 	base             tlvBase
-	designatedL2IsId []byte
+	designatedL2IsId [SYSTEM_ID_LENGTH]byte
 }
 
 func NewPartitionDesignatedL2IsTlv() (*partitionDesignatedL2IsTlv, error) {
@@ -440,17 +429,11 @@ func NewPartitionDesignatedL2IsTlv() (*partitionDesignatedL2IsTlv, error) {
 		},
 	}
 	tlv.base.init()
-	tlv.designatedL2IsId = make([]byte, SYSTEM_ID_LENGTH)
 	return &tlv, nil
 }
 
-func (tlv *partitionDesignatedL2IsTlv) SetDesignatedL2IsId(designatedL2IsId []byte) error {
-	if len(designatedL2IsId) != SYSTEM_ID_LENGTH {
-		return errors.New("partitionDesignatedL2IsTlv.SetDesignatedL2IsId: ID length invalid")
-	}
-	idtmp := make([]byte, SYSTEM_ID_LENGTH)
-	copy(idtmp, designatedL2IsId)
-	tlv.designatedL2IsId = idtmp
+func (tlv *partitionDesignatedL2IsTlv) SetDesignatedL2IsId(designatedL2IsId [SYSTEM_ID_LENGTH]byte) error {
+	tlv.designatedL2IsId = designatedL2IsId
 	return nil
 }
 
@@ -477,18 +460,13 @@ func (tlv *partitionDesignatedL2IsTlv) DecodeFromBytes(data []byte) error {
 	if len(tlv.base.value) != SYSTEM_ID_LENGTH {
 		return errors.New("PartitionDesignatedL2IsTlv.DecodeFromBytes: value length mismatch")
 	}
-	designatedL2IsId := make([]byte, SYSTEM_ID_LENGTH)
-	copy(designatedL2IsId, tlv.base.value)
-	tlv.designatedL2IsId = designatedL2IsId
+	copy(tlv.designatedL2IsId[0:SYSTEM_ID_LENGTH], tlv.base.value[0:SYSTEM_ID_LENGTH])
 	return nil
 }
 
 func (tlv *partitionDesignatedL2IsTlv) Serialize() ([]byte, error) {
-	if len(tlv.designatedL2IsId) != SYSTEM_ID_LENGTH {
-		return nil, errors.New("partitionDesignatedL2IsTlv.Serialize: DesignatedL2IsId length invalid")
-	}
 	value := make([]byte, SYSTEM_ID_LENGTH)
-	copy(value, tlv.designatedL2IsId)
+	copy(value[0:SYSTEM_ID_LENGTH], tlv.designatedL2IsId[0:SYSTEM_ID_LENGTH])
 	tlv.base.length = SYSTEM_ID_LENGTH
 	tlv.base.value = value
 	data, err := tlv.base.Serialize()
@@ -543,7 +521,7 @@ func (tlv *partitionDesignatedL2IsTlv) Serialize() ([]byte, error) {
 
 type isNeighboursHelloTlv struct {
 	base         tlvBase
-	lanAddresses [][]byte
+	lanAddresses [][SYSTEM_ID_LENGTH]byte
 }
 
 func NewIsNeighboursHelloTlv() (*isNeighboursHelloTlv, error) {
@@ -553,47 +531,43 @@ func NewIsNeighboursHelloTlv() (*isNeighboursHelloTlv, error) {
 		},
 	}
 	tlv.base.init()
-	tlv.lanAddresses = make([][]byte, 0)
+	tlv.lanAddresses = make([][SYSTEM_ID_LENGTH]byte, 0)
 	return &tlv, nil
 }
 
-func (tlv *isNeighboursHelloTlv) LanAddresses() [][]byte {
-	lanAddresses := make([][]byte, 0)
+func (tlv *isNeighboursHelloTlv) LanAddresses() [][SYSTEM_ID_LENGTH]byte {
+	lanAddresses := make([][SYSTEM_ID_LENGTH]byte, 0)
 	for _, latmp := range tlv.lanAddresses {
-		lanAddress := make([]byte, len(latmp))
-		copy(lanAddress, latmp)
+		lanAddress := latmp
 		lanAddresses = append(lanAddresses, lanAddress)
 	}
 	return lanAddresses
 }
 
-func (tlv *isNeighboursHelloTlv) AddLanAddress(lanAddress []byte) error {
-	if len(lanAddress) != 6 {
-		return errors.New("IsNeighboursHelloTlv.AddLanAddress: lanAddress length invalid")
-	}
+func (tlv *isNeighboursHelloTlv) AddLanAddress(lanAddress [SYSTEM_ID_LENGTH]byte) error {
 	for _, latmp := range tlv.lanAddresses {
-		if bytes.Equal(lanAddress, latmp) {
+		if bytes.Equal(lanAddress[:], latmp[:]) {
 			return nil
 		}
 	}
-	length := 6 * len(tlv.lanAddresses)
-	if length+6 > 255 {
+	length := SYSTEM_ID_LENGTH * len(tlv.lanAddresses)
+	if length+SYSTEM_ID_LENGTH > 255 {
 		return errors.New("IsNeighboursHelloTlv.AddLanAddress: size over")
 	}
 	tlv.lanAddresses = append(tlv.lanAddresses, lanAddress)
-	tlv.base.length = uint8(length + 6)
+	tlv.base.length = uint8(length + SYSTEM_ID_LENGTH)
 	return nil
 }
 
-func (tlv *isNeighboursHelloTlv) RemoveLanAddress(lanAddress []byte) error {
-	lanAddresses := make([][]byte, 0)
+func (tlv *isNeighboursHelloTlv) RemoveLanAddress(lanAddress [SYSTEM_ID_LENGTH]byte) error {
+	lanAddresses := make([][SYSTEM_ID_LENGTH]byte, 0)
 	for _, latmp := range tlv.lanAddresses {
-		if !bytes.Equal(lanAddress, latmp) {
+		if !bytes.Equal(lanAddress[:], latmp[:]) {
 			lanAddresses = append(lanAddresses, latmp)
 		}
 	}
 	tlv.lanAddresses = lanAddresses
-	tlv.base.length = uint8(6 * len(tlv.lanAddresses))
+	tlv.base.length = uint8(SYSTEM_ID_LENGTH * len(tlv.lanAddresses))
 	return nil
 }
 
@@ -619,16 +593,16 @@ func (tlv *isNeighboursHelloTlv) DecodeFromBytes(data []byte) error {
 	if err != nil {
 		return err
 	}
-	lanAddresses := make([][]byte, 0)
+	lanAddresses := make([][SYSTEM_ID_LENGTH]byte, 0)
 	consumed := 0
-	for i := 0; i < len(tlv.base.value); i += 6 {
-		if i+6 > len(tlv.base.value) {
+	for i := 0; i < len(tlv.base.value); i += SYSTEM_ID_LENGTH {
+		if i+SYSTEM_ID_LENGTH > len(tlv.base.value) {
 			return errors.New("IsNeighboursHelloTlv.DecodeFromBytes: value length overflow")
 		}
-		lanAddress := make([]byte, 6)
-		copy(lanAddress, tlv.base.value[i:i+6])
+		var lanAddress [SYSTEM_ID_LENGTH]byte
+		copy(lanAddress[0:SYSTEM_ID_LENGTH], tlv.base.value[i:i+SYSTEM_ID_LENGTH])
 		lanAddresses = append(lanAddresses, lanAddress)
-		consumed += 6
+		consumed += SYSTEM_ID_LENGTH
 	}
 	if consumed != len(tlv.base.value) {
 		return errors.New("IsNeighboursHelloTlv.DecodeFromBytes: value length mismatch")
@@ -638,12 +612,12 @@ func (tlv *isNeighboursHelloTlv) DecodeFromBytes(data []byte) error {
 }
 
 func (tlv *isNeighboursHelloTlv) Serialize() ([]byte, error) {
-	length := 6 * len(tlv.lanAddresses)
+	length := SYSTEM_ID_LENGTH * len(tlv.lanAddresses)
 	value := make([]byte, length)
 	var i int
 	for _, lanAddress := range tlv.lanAddresses {
-		copy(value[i:i+6], lanAddress)
-		i += 6
+		copy(value[i:i+SYSTEM_ID_LENGTH], lanAddress[0:SYSTEM_ID_LENGTH])
+		i += SYSTEM_ID_LENGTH
 	}
 	tlv.base.length = uint8(length)
 	tlv.base.value = value
@@ -758,26 +732,19 @@ func (tlv *paddingTlv) Serialize() ([]byte, error) {
 
 type lspEntriesLspEntry struct {
 	RemainingLifetime uint16
-	lspId             []byte
+	lspId             [LSP_ID_LENGTH]byte
 	LspSeqNum         uint32
 	Checksum          uint16
 }
 
-func NewLspEntriesLspEntry(lspId []byte) (*lspEntriesLspEntry, error) {
-	if len(lspId) != LSP_ID_LENGTH {
-		return nil, errors.New("NewLspEntriesLspEntry: LspId length invalid")
-	}
+func NewLspEntriesLspEntry(lspId [LSP_ID_LENGTH]byte) (*lspEntriesLspEntry, error) {
 	lspEntry := lspEntriesLspEntry{}
-	idtmp := make([]byte, LSP_ID_LENGTH)
-	copy(idtmp, lspId)
-	lspEntry.lspId = idtmp
+	lspEntry.lspId = lspId
 	return &lspEntry, nil
 }
 
-func (lspEntry *lspEntriesLspEntry) LspId() []byte {
-	lspId := make([]byte, len(lspEntry.lspId))
-	copy(lspId, lspEntry.lspId)
-	return lspId
+func (lspEntry *lspEntriesLspEntry) LspId() [LSP_ID_LENGTH]byte {
+	return lspEntry.lspId
 }
 
 type lspEntriesTlv struct {
@@ -797,16 +764,18 @@ func NewLspEntriesTlv() (*lspEntriesTlv, error) {
 }
 
 func (tlv *lspEntriesTlv) LspEntries() []lspEntriesLspEntry {
-	return tlv.lspEntries
+	lspEntries := make([]lspEntriesLspEntry, 0)
+	for _, ltmp := range tlv.lspEntries {
+		lspEntry := ltmp
+		lspEntries = append(lspEntries, lspEntry)
+	}
+	return lspEntries
 }
 
 func (tlv *lspEntriesTlv) AddLspEntry(lspEntry *lspEntriesLspEntry) error {
-	if len(lspEntry.lspId) != LSP_ID_LENGTH {
-		return errors.New("LspEntriesTlv.AddLspEntry: LSP ID length invalid")
-	}
 	length := 0
 	for _, ltmp := range tlv.lspEntries {
-		if bytes.Equal(lspEntry.lspId, ltmp.lspId) {
+		if bytes.Equal(lspEntry.lspId[:], ltmp.lspId[:]) {
 			return nil
 		}
 		length += 8 + LSP_ID_LENGTH
@@ -823,7 +792,7 @@ func (tlv *lspEntriesTlv) RemoveLspEntry(lspId []byte) error {
 	length := 0
 	lspEntries := make([]lspEntriesLspEntry, 0)
 	for _, ltmp := range tlv.lspEntries {
-		if !bytes.Equal(lspId, ltmp.lspId) {
+		if !bytes.Equal(lspId[:], ltmp.lspId[:]) {
 			lspEntries = append(lspEntries, ltmp)
 			length += 8 + LSP_ID_LENGTH
 		}
@@ -855,7 +824,6 @@ func (tlv *lspEntriesTlv) String() string {
 }
 
 func (tlv *lspEntriesTlv) DecodeFromBytes(data []byte) error {
-	lidlen := LSP_ID_LENGTH
 	err := tlv.base.DecodeFromBytes(data)
 	if err != nil {
 		return err
@@ -863,15 +831,15 @@ func (tlv *lspEntriesTlv) DecodeFromBytes(data []byte) error {
 	lspEntries := make([]lspEntriesLspEntry, 0)
 	consumed := 0
 	for i := 0; i < len(tlv.base.value); i += 8 + LSP_ID_LENGTH {
-		lspid := make([]byte, LSP_ID_LENGTH)
-		copy(lspid, tlv.base.value[i+2:i+2+lidlen])
+		var lspid [LSP_ID_LENGTH]byte
+		copy(lspid[0:LSP_ID_LENGTH], tlv.base.value[i+2:i+2+LSP_ID_LENGTH])
 		ltmp, err := NewLspEntriesLspEntry(lspid)
 		if err != nil {
 			return errors.New("lspEntriesTlv.DecodeFromBytes: LSP ID invalid")
 		}
 		ltmp.RemainingLifetime = binary.BigEndian.Uint16(tlv.base.value[i+0 : i+2])
-		ltmp.LspSeqNum = binary.BigEndian.Uint32(tlv.base.value[i+2+lidlen : i+6+lidlen])
-		ltmp.Checksum = binary.BigEndian.Uint16(tlv.base.value[i+6+lidlen : i+8+lidlen])
+		ltmp.LspSeqNum = binary.BigEndian.Uint32(tlv.base.value[i+2+LSP_ID_LENGTH : i+6+LSP_ID_LENGTH])
+		ltmp.Checksum = binary.BigEndian.Uint16(tlv.base.value[i+6+LSP_ID_LENGTH : i+8+LSP_ID_LENGTH])
 		lspEntries = append(lspEntries, *ltmp)
 		consumed += 8 + LSP_ID_LENGTH
 	}
@@ -883,15 +851,14 @@ func (tlv *lspEntriesTlv) DecodeFromBytes(data []byte) error {
 }
 
 func (tlv *lspEntriesTlv) Serialize() ([]byte, error) {
-	lidlen := LSP_ID_LENGTH
 	length := (8 + LSP_ID_LENGTH) * len(tlv.lspEntries)
 	value := make([]byte, length)
 	i := 0
 	for _, ltmp := range tlv.lspEntries {
 		binary.BigEndian.PutUint16(value[i+0:i+2], ltmp.RemainingLifetime)
-		copy(value[i+2:i+2+lidlen], ltmp.lspId)
-		binary.BigEndian.PutUint32(value[i+2+lidlen:i+6+lidlen], ltmp.LspSeqNum)
-		binary.BigEndian.PutUint16(value[i+6+lidlen:i+8+lidlen], ltmp.Checksum)
+		copy(value[i+2:i+2+LSP_ID_LENGTH], ltmp.lspId[0:LSP_ID_LENGTH])
+		binary.BigEndian.PutUint32(value[i+2+LSP_ID_LENGTH:i+6+LSP_ID_LENGTH], ltmp.LspSeqNum)
+		binary.BigEndian.PutUint16(value[i+6+LSP_ID_LENGTH:i+8+LSP_ID_LENGTH], ltmp.Checksum)
 		i += 8 + LSP_ID_LENGTH
 	}
 	tlv.base.length = uint8(length)

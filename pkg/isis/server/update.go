@@ -231,10 +231,10 @@ func (isis *IsisServer) handleCircuitStateTransitions() {
 	}
 }
 
-func (isis *IsisServer) systemIdChanged(newSystemId []byte) bool {
+func (isis *IsisServer) systemIdChanged(newSystemId [packet.SYSTEM_ID_LENGTH]byte) bool {
 	log.Debug("enter")
 	defer log.Debug("exit")
-	if !bytes.Equal(isis.systemId, newSystemId) {
+	if !bytes.Equal(isis.systemId[:], newSystemId[:]) {
 		return true
 	}
 	return false
@@ -267,8 +267,8 @@ func (isis *IsisServer) lspArrayAppend(lss *[]*packet.LsPdu, level IsisLevel, no
 		return -1, err
 	}
 	index := len(*lss)
-	lspId := make([]byte, packet.LSP_ID_LENGTH)
-	copy(lspId[0:packet.SYSTEM_ID_LENGTH], isis.systemId)
+	var lspId [packet.LSP_ID_LENGTH]byte
+	copy(lspId[0:packet.SYSTEM_ID_LENGTH], isis.systemId[0:packet.SYSTEM_ID_LENGTH])
 	lspId[packet.NEIGHBOUR_ID_LENGTH-1] = nodeId
 	lspId[packet.LSP_ID_LENGTH-1] = uint8(index)
 	ls.SetLspId(lspId)
@@ -446,7 +446,9 @@ func (isis *IsisServer) updateLocalSystemLsps(level IsisLevel) {
 	for _, ls := range lss {
 		found := false
 		for _, curtmp := range cur {
-			if bytes.Equal(ls.LspId(), curtmp.pdu.LspId()) {
+			ll := ls.LspId()
+			lr := curtmp.pdu.LspId()
+			if bytes.Equal(ll[:], lr[:]) {
 				found = true
 				ls.SequenceNumber = curtmp.pdu.SequenceNumber + 1
 				ls.SetChecksum()
@@ -484,8 +486,8 @@ func (isis *IsisServer) updatePseudoNodeLsps(circuit *Circuit, level IsisLevel) 
 			log.Infof("packet.NewIsNeighboursLspTlv failed: %v", err)
 			return
 		}
-		neighborId := make([]byte, packet.NEIGHBOUR_ID_LENGTH)
-		copy(neighborId, isis.systemId)
+		var neighborId [packet.NEIGHBOUR_ID_LENGTH]byte
+		copy(neighborId[0:packet.SYSTEM_ID_LENGTH], isis.systemId[0:packet.SYSTEM_ID_LENGTH])
 		neigh, err := packet.NewIsNeighboursLspNeighbour(neighborId)
 		if err != nil {
 			log.Infof("packet.NewIsNeighboursLspNeighbour failed: %v", err)
@@ -497,13 +499,12 @@ func (isis *IsisServer) updatePseudoNodeLsps(circuit *Circuit, level IsisLevel) 
 			log.Infof("AddNeighbour failed: %v", err)
 			return
 		}
-		//for _, ir := range isis.isReachabilities[level] {
 		for _, adj := range circuit.adjacencyDb {
 			if !adj.level(level) || adj.adjState != packet.ADJ_3WAY_STATE_UP {
 				continue
 			}
-			neighborId := make([]byte, packet.NEIGHBOUR_ID_LENGTH)
-			copy(neighborId, adj.systemId)
+			var neighborId [packet.NEIGHBOUR_ID_LENGTH]byte
+			copy(neighborId[0:packet.SYSTEM_ID_LENGTH], adj.systemId[0:packet.SYSTEM_ID_LENGTH])
 			neigh, err := packet.NewIsNeighboursLspNeighbour(neighborId)
 			if err != nil {
 				log.Infof("packet.NewIsNeighboursLspNeighbour failed: %v", err)
@@ -528,8 +529,8 @@ func (isis *IsisServer) updatePseudoNodeLsps(circuit *Circuit, level IsisLevel) 
 			log.Infof("packet.NewExtendedIsReachabilityTlv failed: %v", err)
 			return
 		}
-		neighborId := make([]byte, packet.NEIGHBOUR_ID_LENGTH)
-		copy(neighborId, isis.systemId)
+		var neighborId [packet.NEIGHBOUR_ID_LENGTH]byte
+		copy(neighborId[0:packet.SYSTEM_ID_LENGTH], isis.systemId[0:packet.SYSTEM_ID_LENGTH])
 		neigh, err := packet.NewExtendedIsReachabilityNeighbour(neighborId)
 		if err != nil {
 			log.Infof("packet.NewExtendedIsReachabilityNeighbour failed: %v", err)
@@ -541,13 +542,12 @@ func (isis *IsisServer) updatePseudoNodeLsps(circuit *Circuit, level IsisLevel) 
 			log.Infof("AddNeighbour failed: %v", err)
 			return
 		}
-		//for _, ir := range isis.isReachabilities[level] {
 		for _, adj := range circuit.adjacencyDb {
 			if !adj.level(level) || adj.adjState != packet.ADJ_3WAY_STATE_UP {
 				continue
 			}
-			neighborId := make([]byte, packet.NEIGHBOUR_ID_LENGTH)
-			copy(neighborId, adj.systemId)
+			var neighborId [packet.NEIGHBOUR_ID_LENGTH]byte
+			copy(neighborId[0:packet.SYSTEM_ID_LENGTH], adj.systemId[0:packet.SYSTEM_ID_LENGTH])
 			neigh, err := packet.NewExtendedIsReachabilityNeighbour(neighborId)
 			if err != nil {
 				log.Infof("packet.NewExtendedIsReachabilityNeighbour failed: %v", err)
@@ -574,7 +574,9 @@ func (isis *IsisServer) updatePseudoNodeLsps(circuit *Circuit, level IsisLevel) 
 	for _, ls := range lss {
 		found := false
 		for _, curtmp := range cur {
-			if bytes.Equal(ls.LspId(), curtmp.pdu.LspId()) {
+			ll := ls.LspId()
+			lr := curtmp.pdu.LspId()
+			if bytes.Equal(ll[:], lr[:]) {
 				found = true
 				ls.SequenceNumber = curtmp.pdu.SequenceNumber + 1
 				ls.SetChecksum()

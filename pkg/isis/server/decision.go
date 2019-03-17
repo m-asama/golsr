@@ -250,16 +250,12 @@ func (triples *spfTriples) Less(i, j int) bool {
 		return triples.triples[i].id.idType < triples.triples[j].id.idType
 	}
 	if triples.triples[i].id.idType != SPF_ID_TYPE_NODE {
-		//return triples.triples[i].id.key() < triples.triples[j].id.key()
-		//return bytes.Compare(triples.triples[i].id.key()[0:1], triples.triples[j].id.key()[0:1]) < 0
 		return triples.triples[i].id.Less(triples.triples[j].id)
 	}
 	pnidi := packet.NEIGHBOUR_ID_LENGTH - 1
 	if triples.triples[i].id.nodeId[pnidi] != triples.triples[j].id.nodeId[pnidi] {
 		return triples.triples[i].id.nodeId[pnidi] > triples.triples[j].id.nodeId[pnidi]
 	}
-	//return triples.triples[i].id.key() < triples.triples[j].id.key()
-	//return bytes.Compare(triples.triples[i].id.key(), triples.triples[j].id.key()) < 0
 	return triples.triples[i].id.Less(triples.triples[j].id)
 }
 
@@ -326,8 +322,6 @@ func (isis *IsisServer) spf(level IsisLevel, cancelSpfCh, doneSpfCh chan struct{
 	defer log.Debugf("exit: %s", level)
 
 	// rfc1195 p.55 Step0
-	//paths := make([]*spfTriple, 0)
-	//tent := make([]*spfTriple, 0)
 	paths := NewSpfTriples()
 	tent := NewSpfTriples()
 	tentlength := NewSpfDistance(0, 0)

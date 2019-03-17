@@ -106,8 +106,6 @@ type IsisChMsg uint8
 
 const (
 	_ IsisChMsg = iota
-	//ISIS_CH_MSG_ENABLE
-	//ISIS_CH_MSG_DISABLE
 	ISIS_CH_MSG_EXIT
 )
 
@@ -121,7 +119,7 @@ type IsisServer struct {
 	config     *config.IsisConfig
 	kernel     *kernel.KernelStatus
 
-	systemId           []byte
+	systemId           [packet.SYSTEM_ID_LENGTH]byte
 	areaAddresses      [][]byte
 	isReachabilities   [ISIS_LEVEL_NUM][]*IsReachability
 	ipv4Reachabilities [ISIS_LEVEL_NUM][]*Ipv4Reachability
@@ -146,7 +144,6 @@ func NewIsisServer(configFile, configType string) *IsisServer {
 		configType:    configType,
 		config:        config.NewIsisConfig(),
 		kernel:        kernel.NewKernelStatus(),
-		systemId:      make([]byte, packet.SYSTEM_ID_LENGTH),
 		areaAddresses: make([][]byte, 0),
 		circuitDb:     make(map[int]*Circuit),
 	}
@@ -199,12 +196,6 @@ func (isis *IsisServer) Serve(wg *sync.WaitGroup) {
 			}).Info("Do nothing")
 		case msg := <-isis.isisCh:
 			switch msg {
-			/*
-				case ISIS_CH_MSG_ENABLE:
-					log.Debugf("ISIS_CH_MSG_ENABLE")
-				case ISIS_CH_MSG_DISABLE:
-					log.Debugf("ISIS_CH_MSG_DISABLE")
-			*/
 			case ISIS_CH_MSG_EXIT:
 				log.Debugf("ISIS_CH_MSG_EXIT")
 				periodicCh <- struct{}{}
@@ -237,7 +228,6 @@ func (isis *IsisServer) SetEnable() {
 	log.Debugf("enter")
 	defer log.Debugf("exit")
 	*isis.config.Config.Enable = true
-	//isis.isisCh <- ISIS_CH_MSG_ENABLE
 	isis.updateChSend(&UpdateChMsg{
 		msgType: UPDATE_CH_MSG_TYPE_ISIS_ENABLE,
 	})
@@ -247,7 +237,6 @@ func (isis *IsisServer) SetDisable() {
 	log.Debugf("enter")
 	defer log.Debugf("exit")
 	*isis.config.Config.Enable = false
-	//isis.isisCh <- ISIS_CH_MSG_DISABLE
 	isis.updateChSend(&UpdateChMsg{
 		msgType: UPDATE_CH_MSG_TYPE_ISIS_DISABLE,
 	})
@@ -259,7 +248,7 @@ func (isis *IsisServer) enable() bool {
 
 func (isis *IsisServer) ready() bool {
 	ready := true
-	if bytes.Equal(isis.systemId, []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}) {
+	if bytes.Equal(isis.systemId[:], []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}) {
 		ready = false
 	}
 	if len(isis.areaAddresses) == 0 {

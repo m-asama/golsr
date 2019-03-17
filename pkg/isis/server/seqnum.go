@@ -34,8 +34,8 @@ func (circuit *Circuit) sendCsn(pduType packet.PduType) {
 		lsps = append(lsps, ls.pdu)
 	}
 
-	startLspId := []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
-	endLspId := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	startLspId := [packet.LSP_ID_LENGTH]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+	endLspId := [packet.LSP_ID_LENGTH]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
 	lspEntriesTlv, _ := packet.NewLspEntriesTlv()
 	for _, lsp := range lsps {
@@ -46,8 +46,10 @@ func (circuit *Circuit) sendCsn(pduType packet.PduType) {
 		lspEntriesTlv.AddLspEntry(lspEntry)
 	}
 
+	var sourceId [packet.NEIGHBOUR_ID_LENGTH]byte
+	copy(sourceId[0:packet.SYSTEM_ID_LENGTH], circuit.isis.systemId[0:packet.SYSTEM_ID_LENGTH])
 	csn, _ := packet.NewSnPdu(pduType)
-	csn.SetSourceId(circuit.isis.systemId)
+	csn.SetSourceId(sourceId)
 	csn.SetStartLspId(startLspId)
 	csn.SetEndLspId(endLspId)
 	csn.AddLspEntriesTlv(lspEntriesTlv)
@@ -68,14 +70,16 @@ func (circuit *Circuit) sendPsn(pduType packet.PduType, lsps []*packet.LsPdu) {
 		lspEntriesTlv.AddLspEntry(lspEntry)
 	}
 
+	var sourceId [packet.NEIGHBOUR_ID_LENGTH]byte
+	copy(sourceId[0:packet.SYSTEM_ID_LENGTH], circuit.isis.systemId[0:packet.SYSTEM_ID_LENGTH])
 	psn, _ := packet.NewSnPdu(pduType)
-	psn.SetSourceId(circuit.isis.systemId)
+	psn.SetSourceId(sourceId)
 	psn.AddLspEntriesTlv(lspEntriesTlv)
 
 	circuit.snSenderCh <- psn
 }
 
-func (circuit *Circuit) receiveSn(pdu *packet.SnPdu, lanAddress []byte) {
+func (circuit *Circuit) receiveSn(pdu *packet.SnPdu, lanAddress [packet.SYSTEM_ID_LENGTH]byte) {
 	log.Debugf("enter: %s", circuit.name)
 	defer log.Debugf("exit: %s", circuit.name)
 
@@ -125,7 +129,7 @@ func (circuit *Circuit) receiveSn(pdu *packet.SnPdu, lanAddress []byte) {
 	}
 
 	if circuit.configBcast() &&
-		!bytes.Equal(lanAddress, adjacency.lanAddress) {
+		!bytes.Equal(lanAddress[:], adjacency.lanAddress[:]) {
 		return
 	}
 	if (pdu.PduType() == packet.PDU_TYPE_LEVEL1_PSNP || pdu.PduType() == packet.PDU_TYPE_LEVEL1_CSNP) &&
@@ -156,7 +160,7 @@ func (circuit *Circuit) receiveSn(pdu *packet.SnPdu, lanAddress []byte) {
 	go circuit.isis.scheduleHandleFlags()
 }
 
-func (circuit *Circuit) handleLspEntry(pduType packet.PduType, lspId []byte, lspSeqNum uint32,
+func (circuit *Circuit) handleLspEntry(pduType packet.PduType, lspId [packet.LSP_ID_LENGTH]byte, lspSeqNum uint32,
 	remainingLifetime, checksum uint16) {
 	log.Debugf("enter: %s", circuit.name)
 	defer log.Debugf("exit: %s", circuit.name)

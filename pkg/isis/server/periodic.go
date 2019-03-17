@@ -79,7 +79,6 @@ func (isis *IsisServer) periodic(doneCh chan struct{}) {
 		case <-timer.C:
 			isis.lsDbWalk()
 			isis.adjDbWalk()
-			//isis.checkFlags()
 			counter++
 			timer.Reset(started.Add(time.Second * counter).Sub(time.Now()))
 		}

@@ -13,7 +13,7 @@ type LsPdu struct {
 	base pduBase
 
 	RemainingLifetime     uint16
-	lspId                 []byte
+	lspId                 [LSP_ID_LENGTH]byte
 	SequenceNumber        uint32
 	Checksum              uint16
 	PartitionRepairFlag   bool
@@ -39,7 +39,6 @@ func NewLsPdu(pduType PduType) (*LsPdu, error) {
 		},
 	}
 	ls.base.init()
-	ls.lspId = make([]byte, 0)
 	return &ls, nil
 }
 
@@ -79,60 +78,58 @@ func (ls *LsPdu) DecodeFromBytes(data []byte) error {
 	ls.RemainingLifetime = binary.BigEndian.Uint16(data[10:12])
 	//
 	// LspId
-	lspId := make([]byte, ls.base.idLength+2)
-	copy(lspId, data[12:14+ls.base.idLength])
-	ls.lspId = lspId
+	copy(ls.lspId[0:LSP_ID_LENGTH], data[12:12+LSP_ID_LENGTH])
 	//
 	// SequenceNumber
-	ls.SequenceNumber = binary.BigEndian.Uint32(data[14+ls.base.idLength : 18+ls.base.idLength])
+	ls.SequenceNumber = binary.BigEndian.Uint32(data[12+LSP_ID_LENGTH : 16+LSP_ID_LENGTH])
 	//
 	// Checksum
-	ls.Checksum = binary.BigEndian.Uint16(data[18+ls.base.idLength : 20+ls.base.idLength])
+	ls.Checksum = binary.BigEndian.Uint16(data[16+LSP_ID_LENGTH : 18+LSP_ID_LENGTH])
 	//
 	// PartitionRepairFlag
-	if data[20+ls.base.idLength]&0x80 == 0x80 {
+	if data[18+LSP_ID_LENGTH]&0x80 == 0x80 {
 		ls.PartitionRepairFlag = true
 	} else {
 		ls.PartitionRepairFlag = false
 	}
 	//
 	// AttachedDefaultMetric
-	if data[20+ls.base.idLength]&0x08 == 0x08 {
+	if data[18+LSP_ID_LENGTH]&0x08 == 0x08 {
 		ls.AttachedDefaultMetric = true
 	} else {
 		ls.AttachedDefaultMetric = false
 	}
 	//
 	// AttachedDealyMetric
-	if data[20+ls.base.idLength]&0x10 == 0x10 {
+	if data[18+LSP_ID_LENGTH]&0x10 == 0x10 {
 		ls.AttachedDealyMetric = true
 	} else {
 		ls.AttachedDealyMetric = false
 	}
 	//
 	// AttachedExpenseMetric
-	if data[20+ls.base.idLength]&0x20 == 0x20 {
+	if data[18+LSP_ID_LENGTH]&0x20 == 0x20 {
 		ls.AttachedExpenseMetric = true
 	} else {
 		ls.AttachedExpenseMetric = false
 	}
 	//
 	// AttachedErrorMetric
-	if data[20+ls.base.idLength]&0x40 == 0x40 {
+	if data[18+LSP_ID_LENGTH]&0x40 == 0x40 {
 		ls.AttachedErrorMetric = true
 	} else {
 		ls.AttachedErrorMetric = false
 	}
 	//
 	// LSPDBOverloadFlag
-	if data[20+ls.base.idLength]&0x04 == 0x04 {
+	if data[18+LSP_ID_LENGTH]&0x04 == 0x04 {
 		ls.LSPDBOverloadFlag = true
 	} else {
 		ls.LSPDBOverloadFlag = false
 	}
 	//
 	// IsType
-	ls.IsType = IsType(data[20+ls.base.idLength] & 0x03)
+	ls.IsType = IsType(data[18+LSP_ID_LENGTH] & 0x03)
 	return nil
 }
 
@@ -146,88 +143,64 @@ func (ls *LsPdu) Serialize() ([]byte, error) {
 	binary.BigEndian.PutUint16(data[10:12], ls.RemainingLifetime)
 	//
 	// LspId
-	copy(data[12:14+ls.base.idLength], ls.lspId)
+	copy(data[12:12+LSP_ID_LENGTH], ls.lspId[0:LSP_ID_LENGTH])
 	//
 	// SequenceNumber
-	binary.BigEndian.PutUint32(data[14+ls.base.idLength:18+ls.base.idLength], ls.SequenceNumber)
+	binary.BigEndian.PutUint32(data[12+LSP_ID_LENGTH:16+LSP_ID_LENGTH], ls.SequenceNumber)
 	//
 	// Checksum
-	binary.BigEndian.PutUint16(data[18+ls.base.idLength:20+ls.base.idLength], ls.Checksum)
+	binary.BigEndian.PutUint16(data[16+LSP_ID_LENGTH:18+LSP_ID_LENGTH], ls.Checksum)
 	//
 	// PartitionRepairFlag
 	if ls.PartitionRepairFlag {
-		data[20+ls.base.idLength] = data[20+ls.base.idLength] | 0x80
+		data[18+LSP_ID_LENGTH] = data[18+LSP_ID_LENGTH] | 0x80
 	} else {
-		data[20+ls.base.idLength] = data[20+ls.base.idLength] &^ 0x80
+		data[18+LSP_ID_LENGTH] = data[18+LSP_ID_LENGTH] &^ 0x80
 	}
 	//
 	// AttachedDefaultMetric
 	if ls.AttachedDefaultMetric {
-		data[20+ls.base.idLength] = data[20+ls.base.idLength] | 0x08
+		data[18+LSP_ID_LENGTH] = data[18+LSP_ID_LENGTH] | 0x08
 	} else {
-		data[20+ls.base.idLength] = data[20+ls.base.idLength] &^ 0x08
+		data[18+LSP_ID_LENGTH] = data[18+LSP_ID_LENGTH] &^ 0x08
 	}
 	//
 	// AttachedDealyMetric
 	if ls.AttachedDealyMetric {
-		data[20+ls.base.idLength] = data[20+ls.base.idLength] | 0x10
+		data[18+LSP_ID_LENGTH] = data[18+LSP_ID_LENGTH] | 0x10
 	} else {
-		data[20+ls.base.idLength] = data[20+ls.base.idLength] &^ 0x10
+		data[18+LSP_ID_LENGTH] = data[18+LSP_ID_LENGTH] &^ 0x10
 	}
 	//
 	// AttachedExpenseMetric
 	if ls.AttachedExpenseMetric {
-		data[20+ls.base.idLength] = data[20+ls.base.idLength] | 0x20
+		data[18+LSP_ID_LENGTH] = data[18+LSP_ID_LENGTH] | 0x20
 	} else {
-		data[20+ls.base.idLength] = data[20+ls.base.idLength] &^ 0x20
+		data[18+LSP_ID_LENGTH] = data[18+LSP_ID_LENGTH] &^ 0x20
 	}
 	//
 	// AttachedErrorMetric
 	if ls.AttachedErrorMetric {
-		data[20+ls.base.idLength] = data[20+ls.base.idLength] | 0x40
+		data[18+LSP_ID_LENGTH] = data[18+LSP_ID_LENGTH] | 0x40
 	} else {
-		data[20+ls.base.idLength] = data[20+ls.base.idLength] &^ 0x40
+		data[18+LSP_ID_LENGTH] = data[18+LSP_ID_LENGTH] &^ 0x40
 	}
 	//
 	// LSPDBOverloadFlag
 	if ls.LSPDBOverloadFlag {
-		data[20+ls.base.idLength] = data[20+ls.base.idLength] | 0x04
+		data[18+LSP_ID_LENGTH] = data[18+LSP_ID_LENGTH] | 0x04
 	} else {
-		data[20+ls.base.idLength] = data[20+ls.base.idLength] &^ 0x04
+		data[18+LSP_ID_LENGTH] = data[18+LSP_ID_LENGTH] &^ 0x04
 	}
 	//
 	// IsType
-	data[20+ls.base.idLength] = (data[20+ls.base.idLength] &^ 0x03) | (uint8(ls.IsType) & 0x03)
+	data[18+LSP_ID_LENGTH] = (data[18+LSP_ID_LENGTH] &^ 0x03) | (uint8(ls.IsType) & 0x03)
 	return data, nil
 }
 
 func (ls *LsPdu) BaseValid() bool {
 	return ls.base.valid()
 }
-
-/*
-func (ls *LsPdu) SetChecksum() error {
-	var csum uint32
-	ls.Checksum = 0
-	data, err := ls.Serialize()
-	if err != nil {
-		return errors.New("checksum error")
-	}
-	log.Debugf("%x", data)
-	for i := 12; i < len(data)-1; i += 2 {
-		csum += uint32(data[i]) << 8
-		csum += uint32(data[i+1])
-	}
-	if len(data)%2 == 1 {
-		csum += uint32(data[len(data)-1]) << 8
-	}
-	for csum > 0xffff {
-		csum = (csum >> 16) + (csum & 0xffff)
-	}
-	ls.Checksum = ^uint16(csum)
-	return nil
-}
-*/
 
 func (ls *LsPdu) SetChecksum() error {
 	ls.Checksum = 0
@@ -238,7 +211,6 @@ func (ls *LsPdu) SetChecksum() error {
 	log.Debugf("%x", data)
 	len := len(data) - 12
 	left := len
-	//p := &data[12]
 	di := 12
 	c0 := 0
 	c1 := 0
@@ -250,7 +222,6 @@ func (ls *LsPdu) SetChecksum() error {
 		for i := 0; i < tmplen; i++ {
 			c0 = c0 + int(data[di])
 			c1 += c0
-			//p += *byte(1)
 			di++
 		}
 		c0 = c0 % 255
@@ -270,19 +241,12 @@ func (ls *LsPdu) SetChecksum() error {
 	return nil
 }
 
-func (ls *LsPdu) LspId() []byte {
-	lspId := make([]byte, len(ls.lspId))
-	copy(lspId, ls.lspId)
-	return lspId
+func (ls *LsPdu) LspId() [LSP_ID_LENGTH]byte {
+	return ls.lspId
 }
 
-func (ls *LsPdu) SetLspId(lspId []byte) error {
-	if len(lspId) != LSP_ID_LENGTH {
-		return errors.New("LsPdu.SetLspId: LSP ID length invalid")
-	}
-	lidtmp := make([]byte, LSP_ID_LENGTH)
-	copy(lidtmp, lspId)
-	ls.lspId = lidtmp
+func (ls *LsPdu) SetLspId(lspId [LSP_ID_LENGTH]byte) error {
+	ls.lspId = lspId
 	return nil
 }
 

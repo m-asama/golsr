@@ -10,7 +10,7 @@ import (
 )
 
 type IsReachability struct {
-	neighborId []byte
+	neighborId [packet.NEIGHBOUR_ID_LENGTH]byte
 	metric     uint32
 	lspNumber  int
 	wideMetric bool
@@ -28,7 +28,7 @@ func (rs IsReachabilities) Swap(i, j int) {
 }
 
 func (rs IsReachabilities) Less(i, j int) bool {
-	return bytes.Compare(rs[i].neighborId, rs[j].neighborId) < 0
+	return bytes.Compare(rs[i].neighborId[:], rs[j].neighborId[:]) < 0
 }
 
 func (isis *IsisServer) newIsReachabilities(level IsisLevel) []*IsReachability {
@@ -40,8 +40,7 @@ func (isis *IsisServer) newIsReachabilities(level IsisLevel) []*IsReachability {
 			continue
 		}
 		if circuit.configBcast() {
-			neighborId := make([]byte, packet.NEIGHBOUR_ID_LENGTH)
-			copy(neighborId, circuit.lanId(level))
+			neighborId := circuit.lanId(level)
 			isr := &IsReachability{
 				neighborId: neighborId,
 				metric:     circuit.metric(level),
@@ -54,8 +53,9 @@ func (isis *IsisServer) newIsReachabilities(level IsisLevel) []*IsReachability {
 				if adjacency.adjState != packet.ADJ_3WAY_STATE_UP {
 					continue
 				}
-				neighborId := make([]byte, packet.NEIGHBOUR_ID_LENGTH)
-				copy(neighborId[0:packet.SYSTEM_ID_LENGTH], adjacency.systemId)
+				var neighborId [packet.NEIGHBOUR_ID_LENGTH]byte
+				copy(neighborId[0:packet.SYSTEM_ID_LENGTH],
+					adjacency.systemId[0:packet.SYSTEM_ID_LENGTH])
 				isr := &IsReachability{
 					neighborId: neighborId,
 					metric:     circuit.metric(level),
@@ -68,7 +68,7 @@ func (isis *IsisServer) newIsReachabilities(level IsisLevel) []*IsReachability {
 	}
 	for _, ctmp := range isis.isReachabilities[level] {
 		for _, ntmp := range new {
-			if bytes.Equal(ntmp.neighborId, ctmp.neighborId) {
+			if bytes.Equal(ntmp.neighborId[:], ctmp.neighborId[:]) {
 				ntmp.lspNumber = ctmp.lspNumber
 			}
 		}
@@ -85,7 +85,7 @@ func (isis *IsisServer) isReachabilitiesChanged(level IsisLevel, new []*IsReacha
 		return true
 	}
 	for i := 0; i < len(current); i++ {
-		if !bytes.Equal(current[i].neighborId, new[i].neighborId) ||
+		if !bytes.Equal(current[i].neighborId[:], new[i].neighborId[:]) ||
 			current[i].metric != new[i].metric {
 			return true
 		}
@@ -303,7 +303,7 @@ func NewReachabilities() *Reachabilities {
 func (rs *Reachabilities) addIsReachability(ir *IsReachability) {
 	newIrs := make([]*IsReachability, 0)
 	for _, irTmp := range rs.isReachabilities {
-		if bytes.Compare(irTmp.neighborId, ir.neighborId) != 0 &&
+		if bytes.Compare(irTmp.neighborId[:], ir.neighborId[:]) != 0 &&
 			irTmp.metric != ir.metric {
 			newIrs = append(newIrs, irTmp)
 		}
