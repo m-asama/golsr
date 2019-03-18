@@ -1,3 +1,19 @@
+//
+// Copyright (C) 2019-2019 Masakazu Asama.
+// Copyright (C) 2019-2019 Ginzado Co., Ltd.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 syntax = "proto3";
 
@@ -18,6 +34,9 @@ service GoisisApi {
 
 	rpc DbLsGet(DbLsGetRequest) returns (DbLsGetResponse);
 	rpc DbLsMonitor(DbLsMonitorRequest) returns (stream DbLsMonitorResponse);
+
+	rpc DbRiGet(DbRiGetRequest) returns (DbRiGetResponse);
+	rpc DbRiMonitor(DbRiMonitorRequest) returns (stream DbRiMonitorResponse);
 }
 
 message EnableRequest {
@@ -61,7 +80,7 @@ message AdjacencyMonitorRequest {
 }
 
 message AdjacencyMonitorResponse {
-        repeated Adjacency adjacency = 1;
+        repeated Adjacency adjacencies = 1;
 }
 
 message DbLsGetRequest {
@@ -75,7 +94,22 @@ message DbLsMonitorRequest {
 }
 
 message DbLsMonitorResponse {
-	repeated Lsp lsp = 1;
+	repeated Lsp lsps = 1;
+}
+
+message DbRiGetRequest {
+}
+
+message DbRiGetResponse {
+}
+
+message DbRiMonitorRequest {
+	string level = 1;
+	string address_family = 2;
+}
+
+message DbRiMonitorResponse {
+	repeated Route routes = 1;
 }
 
 //
@@ -106,13 +140,21 @@ message Lsp {
 	repeated string ipv6_addresses = 10;
 	string ipv4_te_routerid = 11;
 	string ipv6_te_routerid = 12;
-	repeated uint32 protocol_supported = 13;
+	repeated uint32 protocol_supporteds = 13;
 	string dynamic_hostname = 14;
 	Authentication authentication = 15;
 	MtEntries mt_entries = 16;
-	repeated RouterCapabilities router_capabilities = 17;
+	RouterCapabilities router_capabilities = 17;
 	NodeTags node_tags = 18;
 	bytes binary = 19;
+}
+
+message Route {
+	string level = 1;
+	string address_family = 2;
+	string prefix = 3;
+	repeated NextHop next_hops = 4;
+	uint32 metric = 5;
 }
 
 message Authentication {
@@ -126,7 +168,7 @@ message Topology {
 }
 
 message MtEntries {
-	repeated Topology topology = 1;
+	repeated Topology topologies = 1;
 }
 
 message RouterCapabilities {
@@ -140,3 +182,7 @@ message Global {
 	string system_id = 1;
 }
 
+message NextHop {
+	string outgoing_interface = 1;
+	string next_hop = 2;
+}

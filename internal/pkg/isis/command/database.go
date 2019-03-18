@@ -1,3 +1,20 @@
+//
+// Copyright (C) 2019-2019 Masakazu Asama.
+// Copyright (C) 2019-2019 Ginzado Co., Ltd.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package command
 
 import (
@@ -19,7 +36,7 @@ func printLsp(lsp *api.Lsp) {
 	fmt.Printf("Ipv6Addresses     : %s\n", lsp.Ipv6Addresses)
 	fmt.Printf("Ipv4TeRouterid    : %s\n", lsp.Ipv4TeRouterid)
 	fmt.Printf("Ipv6TeRouterid    : %s\n", lsp.Ipv6TeRouterid)
-	fmt.Printf("ProtocolSupported : %s\n", lsp.ProtocolSupported)
+	fmt.Printf("ProtocolSupported : %s\n", lsp.ProtocolSupporteds)
 	fmt.Printf("DynamicHostname   : %s\n", lsp.DynamicHostname)
 	fmt.Printf("\n")
 }
@@ -41,7 +58,7 @@ func NewDbLinkstateCmd() *cobra.Command {
 				} else if err != nil {
 					return
 				}
-				for _, lsp := range r.Lsp {
+				for _, lsp := range r.Lsps {
 					printLsp(lsp)
 				}
 			}

@@ -1,3 +1,20 @@
+//
+// Copyright (C) 2019-2019 Masakazu Asama.
+// Copyright (C) 2019-2019 Ginzado Co., Ltd.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package server
 
 import (
@@ -303,18 +320,28 @@ func (triples *spfTriples) removeTriple(triple *spfTriple) {
 	triples.triples = tstmp
 }
 
-type Ipv4Ri struct {
-	prefixAddress    uint32
-	prefixLength     uint8
+type Ipv4Nh struct {
 	nexthopAddress   uint32
 	nexthopInterface *Circuit
 }
 
-type Ipv6Ri struct {
-	prefixAddress    [4]uint32
-	prefixLength     uint8
+type Ipv4Ri struct {
+	prefixAddress uint32
+	prefixLength  uint8
+	nexthops      []*Ipv4Nh
+	metric        uint32
+}
+
+type Ipv6Nh struct {
 	nexthopAddress   [4]uint32
 	nexthopInterface *Circuit
+}
+
+type Ipv6Ri struct {
+	prefixAddress [4]uint32
+	prefixLength  uint8
+	nexthops      []*Ipv6Nh
+	metric        uint32
 }
 
 func (isis *IsisServer) spf(level IsisLevel, cancelSpfCh, doneSpfCh chan struct{}) {
@@ -494,6 +521,7 @@ DONE:
 	}
 
 	log.Debugf("INSERT FIB HERE: %s", level)
+	isis.updateRiDb(level, paths)
 
 CANCEL:
 	doneSpfCh <- struct{}{}
@@ -533,6 +561,74 @@ func (isis *IsisServer) debugPrint(level IsisLevel, paths, tent *spfTriples, ste
 	(*step)++
 }
 
+func (isis *IsisServer) updateRiDb(level IsisLevel, paths *spfTriples) {
+	ipv4RiDb := make(map[[SPF_ID_KEY_LENGTH]byte]*Ipv4Ri)
+	ipv6RiDb := make(map[[SPF_ID_KEY_LENGTH]byte]*Ipv6Ri)
+	for _, triple := range paths.triples {
+		if triple.id.idType == SPF_ID_TYPE_IPV4 {
+			ipv4Ri := &Ipv4Ri{
+				prefixAddress: triple.id.ipv4PrefixAddress,
+				prefixLength:  triple.id.ipv4PrefixLength,
+				nexthops:      make([]*Ipv4Nh, 0),
+				metric:        triple.distance.internal,
+			}
+			for _, adj := range triple.adjacencies {
+				var nha *uint32
+				var nhc *Circuit
+				for _, v4 := range adj.ipv4Addresses {
+					if nha == nil {
+						nha = &v4
+						nhc = adj.circuit
+					}
+				}
+				if nha != nil {
+					ipv4Nh := &Ipv4Nh{
+						nexthopAddress:   *nha,
+						nexthopInterface: nhc,
+					}
+					ipv4Ri.nexthops = append(ipv4Ri.nexthops, ipv4Nh)
+				}
+			}
+			ipv4RiDb[triple.id.key()] = ipv4Ri
+		}
+		if triple.id.idType == SPF_ID_TYPE_IPV6 {
+			ipv6Ri := &Ipv6Ri{
+				prefixAddress: [4]uint32{
+					triple.id.ipv6PrefixAddress[0],
+					triple.id.ipv6PrefixAddress[1],
+					triple.id.ipv6PrefixAddress[2],
+					triple.id.ipv6PrefixAddress[3],
+				},
+				prefixLength: triple.id.ipv6PrefixLength,
+				nexthops:     make([]*Ipv6Nh, 0),
+				metric:       triple.distance.internal,
+			}
+			for _, adj := range triple.adjacencies {
+				var nha *[4]uint32
+				var nhc *Circuit
+				for _, v6 := range adj.ipv6Addresses {
+					if nha == nil {
+						nha = &v6
+						nhc = adj.circuit
+					}
+				}
+				if nha != nil {
+					ipv6Nh := &Ipv6Nh{
+						nexthopAddress:   *nha,
+						nexthopInterface: nhc,
+					}
+					ipv6Ri.nexthops = append(ipv6Ri.nexthops, ipv6Nh)
+				}
+			}
+			ipv6RiDb[triple.id.key()] = ipv6Ri
+		}
+	}
+	isis.lock.Lock()
+	isis.ipv4RiDb[level] = ipv4RiDb
+	isis.ipv6RiDb[level] = ipv6RiDb
+	isis.lock.Unlock()
+}
+
 func (isis *IsisServer) routeCalculator(level IsisLevel, doCh chan struct{}, doneCh chan struct{}) {
 	log.Debugf("enter: %s", level)
 	defer log.Debugf("exit: %s", level)
@@ -544,17 +640,17 @@ func (isis *IsisServer) routeCalculator(level IsisLevel, doCh chan struct{}, don
 		select {
 		case <-doCh:
 			doCh <- struct{}{}
-			log.Debugf("REDO: %s", level)
+			log.Infof("REDO: %s", level)
 			cancelSpfCh <- struct{}{}
 			<-doneSpfCh
 			select {
 			case <-cancelSpfCh:
-				log.Debugf("XXX CANCEL SPF CH CLEAR XXX: %s", level)
+				log.Infof("XXX CANCEL SPF CH CLEAR XXX: %s", level)
 			default:
 			}
 			goto REDO
 		case <-doneSpfCh:
-			log.Debugf("DONE: %s", level)
+			log.Infof("DONE: %s", level)
 		}
 	REDO:
 		doneCh <- struct{}{}

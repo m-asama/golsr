@@ -1,8 +1,27 @@
+//
+// Copyright (C) 2019-2019 Masakazu Asama.
+// Copyright (C) 2019-2019 Ginzado Co., Ltd.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"net"
+	"sort"
 	"strings"
 	"sync"
 
@@ -175,7 +194,7 @@ func (s *ApiServer) AdjacencyMonitor(in *api.AdjacencyMonitorRequest, stream api
 			adjacencies = append(adjacencies, adjacency)
 		}
 		r := &api.AdjacencyMonitorResponse{
-			Adjacency: adjacencies,
+			Adjacencies: adjacencies,
 		}
 		stream.Send(r)
 	}
@@ -230,7 +249,7 @@ func (s *ApiServer) DbLsMonitor(in *api.DbLsMonitorRequest, stream api.GoisisApi
 		}
 		log.Debugf("len(lsps) = %d", len(lsps))
 		r := &api.DbLsMonitorResponse{
-			Lsp: lsps,
+			Lsps: lsps,
 		}
 		stream.Send(r)
 	}
@@ -243,9 +262,117 @@ func (s *ApiServer) DbLsMonitor(in *api.DbLsMonitorRequest, stream api.GoisisApi
 		}
 		log.Debugf("len(lsps) = %d", len(lsps))
 		r := &api.DbLsMonitorResponse{
-			Lsp: lsps,
+			Lsps: lsps,
 		}
 		stream.Send(r)
 	}
+	return nil
+}
+
+func (s *ApiServer) DbRiGet(ctx context.Context, in *api.DbRiGetRequest) (*api.DbRiGetResponse, error) {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
+	return nil, nil
+}
+
+type SpfIdKeys [][SPF_ID_KEY_LENGTH]byte
+
+func (keys SpfIdKeys) Len() int {
+	return len(keys)
+}
+
+func (keys SpfIdKeys) Swap(i, j int) {
+	keys[i], keys[j] = keys[j], keys[i]
+}
+
+func (keys SpfIdKeys) Less(i, j int) bool {
+	return bytes.Compare(keys[i][:], keys[j][:]) < 0
+}
+
+func fillRoute4(apiRoute *api.Route, ipv4Ri *Ipv4Ri) {
+	apiRoute.Prefix = fmt.Sprintf("%s/%d", util.Ipv4Uint32ToString(ipv4Ri.prefixAddress), ipv4Ri.prefixLength)
+	apiRoute.Metric = ipv4Ri.metric
+	nhs := make([]*api.NextHop, 0)
+	for _, nh := range ipv4Ri.nexthops {
+		apiNh := &api.NextHop{}
+		apiNh.OutgoingInterface = nh.nexthopInterface.name
+		apiNh.NextHop = util.Ipv4Uint32ToString(nh.nexthopAddress)
+		nhs = append(nhs, apiNh)
+	}
+	apiRoute.NextHops = nhs
+}
+
+func fillRoute6(apiRoute *api.Route, ipv6Ri *Ipv6Ri) {
+	apiRoute.Prefix = fmt.Sprintf("%s/%d", util.Ipv6Uint32ArrayToString(ipv6Ri.prefixAddress), ipv6Ri.prefixLength)
+	apiRoute.Metric = ipv6Ri.metric
+	nhs := make([]*api.NextHop, 0)
+	for _, nh := range ipv6Ri.nexthops {
+		apiNh := &api.NextHop{}
+		apiNh.OutgoingInterface = nh.nexthopInterface.name
+		apiNh.NextHop = util.Ipv6Uint32ArrayToString(nh.nexthopAddress)
+		nhs = append(nhs, apiNh)
+	}
+	apiRoute.NextHops = nhs
+}
+
+func (s *ApiServer) DbRiMonitor(in *api.DbRiMonitorRequest, stream api.GoisisApi_DbRiMonitorServer) error {
+	log.Debugf("enter")
+	defer log.Debugf("exit")
+	s.isisServer.lock.RLock()
+	defer s.isisServer.lock.RUnlock()
+
+	keyMap := make(map[[SPF_ID_KEY_LENGTH]byte]bool)
+	keyArray := make([][SPF_ID_KEY_LENGTH]byte, 0)
+
+	for _, level := range ISIS_LEVEL_ALL {
+		if in.Level == "all" ||
+			(in.Level == "level-1" && level == ISIS_LEVEL_1) ||
+			(in.Level == "level-2" && level == ISIS_LEVEL_2) {
+			if in.AddressFamily == "all" || in.AddressFamily == "ipv4" {
+				for k, _ := range s.isisServer.ipv4RiDb[level] {
+					keyMap[k] = true
+				}
+			}
+			if in.AddressFamily == "all" || in.AddressFamily == "ipv6" {
+				for k, _ := range s.isisServer.ipv6RiDb[level] {
+					keyMap[k] = true
+				}
+			}
+		}
+	}
+
+	for k, _ := range keyMap {
+		keyArray = append(keyArray, k)
+	}
+	sort.Sort(SpfIdKeys(keyArray))
+
+	for _, k := range keyArray {
+		routes := make([]*api.Route, 0)
+		for _, level := range ISIS_LEVEL_ALL {
+			if in.Level == "all" ||
+				(in.Level == "level-1" && level == ISIS_LEVEL_1) ||
+				(in.Level == "level-2" && level == ISIS_LEVEL_2) {
+				if v, ok := s.isisServer.ipv4RiDb[level][k]; ok {
+					route := &api.Route{}
+					route.Level = level.String2()
+					route.AddressFamily = "ipv4"
+					fillRoute4(route, v)
+					routes = append(routes, route)
+				}
+				if v, ok := s.isisServer.ipv6RiDb[level][k]; ok {
+					route := &api.Route{}
+					route.Level = level.String2()
+					route.AddressFamily = "ipv6"
+					fillRoute6(route, v)
+					routes = append(routes, route)
+				}
+			}
+		}
+		r := &api.DbRiMonitorResponse{
+			Routes: routes,
+		}
+		stream.Send(r)
+	}
+
 	return nil
 }
