@@ -1,4 +1,4 @@
-# GoISIS
+# GoISIS: IS-IS implementation in Go
 
 ## これは何？
 

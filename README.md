@@ -8,5 +8,5 @@ GoBGP っぽい OSPF/IS-IS の実装があったら面白いかなー、とい�
 
 とりあえず OSPF は置いといて IS-IS を実装しています。
 
-- GoISIS (docs/sources/goisis.md)
+- [GoISIS: IS-IS implementation in Go](docs/sources/goisis.md)
 
