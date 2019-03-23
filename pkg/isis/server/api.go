@@ -29,7 +29,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	api "github.com/m-asama/golsr/api"
+	api "github.com/m-asama/golsr/api/isis"
 	"github.com/m-asama/golsr/internal/pkg/util"
 	"github.com/m-asama/golsr/pkg/isis/packet"
 )

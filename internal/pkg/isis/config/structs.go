@@ -17,7 +17,7 @@
 
 package config
 
-// draft-ietf-isis-yang-isis-cfg-25
+// draft-ietf-isis-yang-isis-cfg-35
 
 type TeRidConfig struct {
 	Ipv4RouterId *string `mapstructure:"ipv4-router-id"`
@@ -41,8 +41,8 @@ type Mpls struct {
 }
 
 type AutoCostConfig struct {
-	ReferenceBandwidth *uint32 `mapstructure:"reference-bandwidth"`
 	Enable             *bool   `mapstructure:"enable"`
+	ReferenceBandwidth *uint32 `mapstructure:"reference-bandwidth"`
 }
 
 type AutoCost struct {
@@ -195,8 +195,8 @@ type SpfControl struct {
 }
 
 type TopologyConfig struct {
-	Enable *bool
-	Name   *string
+	Enable *bool   `mapstructure:"enable"`
+	Name   *string `mapstructure:"name"`
 }
 
 type Topology struct {
@@ -206,7 +206,7 @@ type Topology struct {
 }
 
 type HelloPaddingConfig struct {
-	Enable *bool
+	Enable *bool `mapstructure:"enable"`
 }
 
 type HelloPadding struct {

@@ -31,9 +31,9 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	api "github.com/m-asama/golsr/api/isis"
-	"github.com/m-asama/golsr/internal/pkg/isis/config"
-	"github.com/m-asama/golsr/pkg/isis/server"
+	api "github.com/m-asama/golsr/api/ospf"
+	"github.com/m-asama/golsr/internal/pkg/ospf/config"
+	"github.com/m-asama/golsr/pkg/ospf/server"
 )
 
 var version = "master"
@@ -49,7 +49,7 @@ func main() {
 		UseSyslog     string `short:"s" long:"syslog" description:"use syslogd"`
 		Facility      string `long:"syslog-facility" description:"specify syslog facility"`
 		DisableStdlog bool   `long:"disable-stdlog" description:"disable standard logging"`
-		GrpcHosts     string `long:"api-hosts" description:"specify the hosts that goisisd listens on" default:":50052"`
+		GrpcHosts     string `long:"api-hosts" description:"specify the hosts that goospfd listens on" default:":50052"`
 		Dry           bool   `short:"d" long:"dry-run" description:"check configuration"`
 		Version       bool   `long:"version" description:"show version number"`
 	}
@@ -59,7 +59,7 @@ func main() {
 	}
 
 	if opts.Version {
-		fmt.Println("goisisd version", version)
+		fmt.Println("goospfd version", version)
 		os.Exit(0)
 	}
 
@@ -90,7 +90,7 @@ func main() {
 	}
 
 	if opts.Dry {
-		configCh := make(chan *config.IsisConfig)
+		configCh := make(chan *config.OspfConfig)
 		go config.Serve(opts.ConfigFile, opts.ConfigType, configCh)
 		c := <-configCh
 		if opts.LogLevel == "debug" {
@@ -101,24 +101,24 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	log.Info("goisisd started")
+	log.Info("goospfd started")
 
-	isisServer := server.NewIsisServer(opts.ConfigFile, opts.ConfigType)
+	ospfServer := server.NewOspfServer(opts.ConfigFile, opts.ConfigType)
 	wg.Add(1)
-	go isisServer.Serve(&wg)
+	go ospfServer.Serve(&wg)
 
 	var grpcOpts []grpc.ServerOption
-	apiServer := server.NewApiServer(isisServer, grpc.NewServer(grpcOpts...), opts.GrpcHosts)
+	apiServer := server.NewApiServer(ospfServer, grpc.NewServer(grpcOpts...), opts.GrpcHosts)
 	wg.Add(1)
 	go apiServer.Serve(&wg)
 
 	<-sigCh
 
-	log.Info("goisisd stoping")
+	log.Info("goospfd stoping")
 	apiServer.Disable(context.Background(), &api.DisableRequest{})
 	apiServer.Exit()
-	isisServer.Exit()
+	ospfServer.Exit()
 
 	wg.Wait()
-	log.Info("goisisd terminated")
+	log.Info("goospfd terminated")
 }

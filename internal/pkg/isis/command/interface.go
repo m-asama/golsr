@@ -23,7 +23,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	api "github.com/m-asama/golsr/api"
+	api "github.com/m-asama/golsr/api/isis"
 )
 
 func printAdjacency(adj *api.Adjacency) {

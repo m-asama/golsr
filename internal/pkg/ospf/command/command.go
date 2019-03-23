@@ -29,7 +29,7 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 
-	api "github.com/m-asama/golsr/api/isis"
+	api "github.com/m-asama/golsr/api/ospf"
 )
 
 var globalOpts struct {
@@ -42,7 +42,7 @@ var globalOpts struct {
 	BashCmplFile string
 }
 
-var client api.GoisisApiClient
+var client api.GoospfApiClient
 var ctx context.Context
 
 func printError(err error) {
@@ -61,7 +61,7 @@ func exitWithError(err error) {
 	os.Exit(1)
 }
 
-func newClient(ctx context.Context) (api.GoisisApiClient, error) {
+func newClient(ctx context.Context) (api.GoospfApiClient, error) {
 	grpcOpts := []grpc.DialOption{grpc.WithTimeout(time.Second), grpc.WithBlock()}
 	grpcOpts = append(grpcOpts, grpc.WithInsecure())
 
@@ -74,13 +74,13 @@ func newClient(ctx context.Context) (api.GoisisApiClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	return api.NewGoisisApiClient(conn), nil
+	return api.NewGoospfApiClient(conn), nil
 }
 
 func NewRootCmd() *cobra.Command {
 	cobra.EnablePrefixMatching = true
 	rootCmd := &cobra.Command{
-		Use: "goisis",
+		Use: "goospf",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if !globalOpts.GenCmpl {
 				var err error
@@ -108,7 +108,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().BoolVarP(&globalOpts.Debug, "debug", "d", false, "use debug")
 	rootCmd.PersistentFlags().BoolVarP(&globalOpts.Quiet, "quiet", "q", false, "use quiet")
 	rootCmd.PersistentFlags().BoolVarP(&globalOpts.GenCmpl, "gen-cmpl", "c", false, "generate completion file")
-	rootCmd.PersistentFlags().StringVarP(&globalOpts.BashCmplFile, "bash-cmpl-file", "", "goisis-completion.bash",
+	rootCmd.PersistentFlags().StringVarP(&globalOpts.BashCmplFile, "bash-cmpl-file", "", "goospf-completion.bash",
 		"bash cmpl filename")
 
 	enableCmd := &cobra.Command{
@@ -129,14 +129,16 @@ func NewRootCmd() *cobra.Command {
 	}
 	rootCmd.AddCommand(disableCmd)
 
-	interfaceCmd := NewInterfaceCmd()
-	rootCmd.AddCommand(interfaceCmd)
+	/*
+		interfaceCmd := NewInterfaceCmd()
+		rootCmd.AddCommand(interfaceCmd)
 
-	databaseCmd := NewDatabaseCmd()
-	rootCmd.AddCommand(databaseCmd)
+		databaseCmd := NewDatabaseCmd()
+		rootCmd.AddCommand(databaseCmd)
 
-	routeCmd := NewRouteCmd()
-	rootCmd.AddCommand(routeCmd)
+		routeCmd := NewRouteCmd()
+		rootCmd.AddCommand(routeCmd)
+	*/
 
 	return rootCmd
 }
